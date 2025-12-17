@@ -66,7 +66,19 @@ void render_component(const char* name, int x, int y, float scale) {
         const char* cmd = comp->commands[i].cmd;
         char transformed[256];
 
-        // Transform coordinates
+        // Transform pen down X Y
+        if (strncmp(cmd, "pen down ", 9) == 0) {
+            int cx, cy;
+            if (sscanf(cmd + 9, "%d %d", &cx, &cy) == 2) {
+                cx = (int)(cx * scale) + x;
+                cy = (int)(cy * scale) + y;
+                snprintf(transformed, sizeof(transformed), "pen down %d %d\n", cx, cy);
+                write(fd, transformed, strlen(transformed));
+                continue;
+            }
+        }
+
+        // Transform pen move X Y
         if (strncmp(cmd, "pen move ", 9) == 0) {
             int cx, cy;
             if (sscanf(cmd + 9, "%d %d", &cx, &cy) == 2) {
@@ -78,7 +90,7 @@ void render_component(const char* name, int x, int y, float scale) {
             }
         }
 
-        // Send as-is if not a move command
+        // Send as-is (pen up, etc.)
         write(fd, cmd, strlen(cmd));
         write(fd, "\n", 1);
     }
@@ -117,6 +129,19 @@ void render_text(int x, int y, const char* text, float scale, int spacing) {
             const char* cmd = glyph->commands[i].cmd;
             char transformed[256];
 
+            // Transform pen down X Y
+            if (strncmp(cmd, "pen down ", 9) == 0) {
+                int gx, gy;
+                if (sscanf(cmd + 9, "%d %d", &gx, &gy) == 2) {
+                    gx = (int)(gx * scale) + offset_x;
+                    gy = (int)(gy * scale) + y;
+                    snprintf(transformed, sizeof(transformed), "pen down %d %d\n", gx, gy);
+                    write(fd, transformed, strlen(transformed));
+                    continue;
+                }
+            }
+
+            // Transform pen move X Y
             if (strncmp(cmd, "pen move ", 9) == 0) {
                 int gx, gy;
                 if (sscanf(cmd + 9, "%d %d", &gx, &gy) == 2) {
