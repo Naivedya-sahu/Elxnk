@@ -49,6 +49,9 @@ class SVGToLampConverter:
         """Parse SVG path data into lamp commands"""
         commands = []
 
+        # CRITICAL: Always start with pen up to avoid drawing from 0,0
+        commands.append("pen up")
+
         # Simple tokenizer for SVG path commands
         # Handles: M/m (moveto), L/l (lineto), H/h (horizontal), V/v (vertical), C/c (cubic bezier)
         tokens = re.findall(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?\d*\.?\d+', path_data)
@@ -84,8 +87,9 @@ class SVGToLampConverter:
                             current_y += coords[1]
 
                         commands.append(f"pen move {int(current_x)} {int(current_y)}")
-                        commands.append("pen down")
-                        pen_down = True
+                        # Note: In SVG, M starts a new subpath but doesn't draw
+                        # The next command (usually L) will draw from this point
+                        # So we DON'T auto-add "pen down" here
 
                 elif cmd in 'Ll':  # Line
                     if not pen_down:
