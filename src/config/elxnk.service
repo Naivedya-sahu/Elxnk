@@ -25,7 +25,6 @@ ProtectHome=no
 
 # Environment
 Environment="PATH=/opt/bin:/usr/local/bin:/usr/bin:/bin"
-WorkingDirectory=/home/root/lamp-v2
 
 [Install]
 WantedBy=multi-user.target

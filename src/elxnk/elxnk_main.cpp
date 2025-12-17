@@ -22,7 +22,7 @@
 #define GENIE_BINARY "/opt/bin/genie_lamp"
 #define GENIE_CONFIG "/opt/etc/genie_ui.conf"
 #define LAMP_PIPE "/tmp/elxnk_lamp.pipe"
-#define UI_INIT_SCRIPT "/home/root/lamp-v2/scripts/ui_state.sh"
+#define UI_INIT_SCRIPT "/opt/bin/ui_state.sh"
 #define LOG_FILE "/tmp/elxnk.log"
 #define PID_FILE "/tmp/elxnk.pid"
 
