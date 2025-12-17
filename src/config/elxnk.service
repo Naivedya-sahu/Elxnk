@@ -1,0 +1,31 @@
+[Unit]
+Description=Elxnk - Circuit Drawing System for reMarkable 2
+Documentation=https://github.com/your-repo/Elxnk
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/opt/bin/elxnk
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Process management
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Security settings (relaxed for rm2)
+PrivateTmp=no
+ProtectSystem=no
+ProtectHome=no
+
+# Environment
+Environment="PATH=/opt/bin:/usr/local/bin:/usr/bin:/bin"
+WorkingDirectory=/home/root/lamp-v2
+
+[Install]
+WantedBy=multi-user.target
