@@ -11,7 +11,7 @@ BUILD_DIR = ../build
 BIN_DIR = $(BUILD_DIR)/bin
 TOOLS_DIR = ../tools
 ASSETS_DIR = ../assets
-RMKIT_DIR = ../resources/rmkit
+# Removed: RMKIT_DIR = ../resources/rmkit
 
 # Target binaries
 ELXNK_BIN = $(BIN_DIR)/elxnk
@@ -21,6 +21,7 @@ LAMP_BIN = $(BIN_DIR)/lamp
 # Source files
 ELXNK_SRC = elxnk/elxnk_main.cpp
 GENIE_SRC = genie_lamp/main.cpp
+LAMP_SRC = lamp/main.cpp
 ELXNK_LIB = elxnk/component_library.h
 
 # Deployment config
@@ -68,13 +69,12 @@ $(GENIE_BIN): $(GENIE_SRC) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $(GENIE_SRC)
 	@echo "Built: $@"
 
-# Build lamp drawing engine from rmkit
+# Build lamp drawing engine (standalone)
 lamp: $(LAMP_BIN)
 
-$(LAMP_BIN): | $(BIN_DIR)
-	@echo "Building lamp from rmkit..."
-	cd $(RMKIT_DIR) && $(MAKE) lamp TARGET=rm
-	cp $(RMKIT_DIR)/src/build/lamp $@
+$(LAMP_BIN): lamp/main.cpp | $(BIN_DIR)
+	@echo "Building lamp (standalone)..."
+	$(CXX) $(CXXFLAGS) -o $@ lamp/main.cpp
 	@echo "Built: $@"
 
 # Create build directory
@@ -86,7 +86,6 @@ clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(BUILD_DIR)
 	rm -f $(ELXNK_LIB)
-	cd $(RMKIT_DIR) && $(MAKE) clean 2>/dev/null || true
 	@echo "Clean complete"
 
 # Install - deploy binaries only

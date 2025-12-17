@@ -97,24 +97,28 @@ make uninstall
 ## File Structure
 
 ```
-src/
-├── Makefile              # Unified build system
-├── elxnk/
-│   ├── elxnk_main.cpp    # Main controller (480 lines)
-│   └── component_library.h  # Auto-generated (27KB, 888 commands)
-├── genie_lamp/
-│   ├── main.cpp          # Gesture detector (254 lines)
-│   └── ui.conf           # Gesture mappings
-└── config/
-    ├── elxnk.conf        # System config
-    └── elxnk.service     # Systemd service
-
-tools/
-└── svg2header.py         # SVG → C header converter (build-time)
-
-assets/                   # SVG sources (build-time only)
-├── components/           # 17 circuit components
-└── font/                 # 36 font glyphs
+Elxnk/                    # Root (6 items - minimized!)
+├── README.md             # Documentation
+├── CLEANUP_NOTES.md      # Refactoring notes
+├── REFACTOR_SUMMARY.md   # Summary of changes
+├── assets/               # SVG sources (build-time only)
+│   ├── components/       # 17 circuit components
+│   └── font/             # 36 font glyphs
+├── tools/
+│   └── svg2header.py     # SVG → C header converter (build-time)
+└── src/                  # All source code
+    ├── Makefile          # Unified build system
+    ├── lamp/
+    │   └── main.cpp      # Standalone drawing engine (361 lines, pure C++)
+    ├── genie_lamp/
+    │   ├── main.cpp      # Gesture detector (254 lines)
+    │   └── ui.conf       # Gesture mappings
+    ├── elxnk/
+    │   ├── elxnk_main.cpp    # Main controller (480 lines)
+    │   └── component_library.h  # Auto-generated (27KB, 888 commands)
+    └── config/
+        ├── elxnk.conf    # System config
+        └── elxnk.service # Systemd service
 ```
 
 ## Deployment Structure (reMarkable 2)
@@ -135,7 +139,8 @@ assets/                   # SVG sources (build-time only)
 ### Build Time
 1. `svg2header.py` converts all SVG components/fonts to C arrays
 2. `component_library.h` contains embedded lamp commands
-3. All three binaries compiled with embedded data
+3. Standalone `lamp` built from pure C++ (no rmkit/external deps)
+4. All three binaries compiled with embedded data
 
 ### Runtime
 1. `elxnk` starts and manages `lamp` + `genie_lamp`
@@ -145,7 +150,7 @@ assets/                   # SVG sources (build-time only)
 5. `elxnk` monitors health and auto-restarts on crash
 
 ### No Runtime Dependencies
-✅ No SVG parsing | ✅ No bash scripts | ✅ No Python | ✅ All data embedded
+✅ No SVG parsing | ✅ No bash scripts | ✅ No Python | ✅ No rmkit | ✅ All data embedded
 
 ## Monitoring
 
