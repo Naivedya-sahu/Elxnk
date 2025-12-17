@@ -4,21 +4,23 @@ SVG to Lamp Command Converter
 Converts SVG files to embedded C header with lamp drawing commands
 Pre-processes all components and fonts at build time
 
-This uses the same parsing logic as svg_to_lamp_smartv2.py
+LAMP COMMAND SYNTAX:
+  pen down X Y  - Put pen down at position (X,Y) and set current position
+  pen move X Y  - Draw line from current position to (X,Y)
+  pen up        - Lift pen
 """
 
 import re
 import sys
 import os
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 import xml.etree.ElementTree as ET
 
 
 def parse_svg_to_lamp_commands(svg_path):
     """
-    Parse SVG file and generate lamp commands.
-    Uses proper coordinate transformation and pen control.
+    Parse SVG file and generate lamp commands with CORRECT syntax.
     """
     try:
         tree = ET.parse(svg_path)
@@ -45,22 +47,15 @@ def parse_svg_to_lamp_commands(svg_path):
             return []
 
         commands = []
-        first_path = True
 
         for path in paths:
             path_data = path.get('d', '')
             if not path_data:
                 continue
 
-            # Parse path data
-            path_commands = parse_path_data(
-                path_data,
-                transform_x,
-                transform_y,
-                is_first=first_path
-            )
+            # Parse this path
+            path_commands = parse_path_data(path_data, transform_x, transform_y)
             commands.extend(path_commands)
-            first_path = False
 
         return commands
 
@@ -69,21 +64,24 @@ def parse_svg_to_lamp_commands(svg_path):
         return []
 
 
-def parse_path_data(path_data, tx, ty, is_first=False):
+def parse_path_data(path_data, tx, ty):
     """
-    Parse SVG path data string into lamp commands.
+    Parse SVG path data into CORRECT lamp commands.
 
-    tx, ty: transform translation from SVG group (normalizes coordinates to 0,0 origin)
-    is_first: whether this is the first path
+    CRITICAL: lamp syntax is:
+      - pen down X Y (to start drawing at X,Y)
+      - pen move X Y (to draw line to X,Y)
+      - pen up (to stop drawing)
+
+    NOT:
+      - pen move X Y + pen down (WRONG!)
     """
     commands = []
 
-    # Tokenize: extract commands (M,L,H,V,C,Z etc) and numbers
+    # Tokenize
     tokens = re.findall(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', path_data)
 
     i = 0
-    # Track position in UNTRANSFORMED coordinate space
-    # Transform (tx, ty) is applied ONLY when outputting coordinates
     current_x, current_y = 0.0, 0.0
     start_x, start_y = 0.0, 0.0
     pen_is_down = False
@@ -94,12 +92,11 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
         cmd = tokens[i]
 
-        # Skip if not a command
         if not cmd[0].isalpha():
             i += 1
             continue
 
-        # Collect coordinate parameters
+        # Collect coordinates
         coords = []
         i += 1
         while i < len(tokens) and not tokens[i][0].isalpha():
@@ -117,7 +114,7 @@ def parse_path_data(path_data, tx, ty, is_first=False):
                     commands.append("pen up")
                     pen_is_down = False
 
-                # Update position in UNTRANSFORMED space
+                # Update position
                 if cmd == 'M':  # Absolute
                     current_x = coords[0]
                     current_y = coords[1]
@@ -127,23 +124,17 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
                 start_x, start_y = current_x, current_y
 
-                # Apply transform when outputting
+                # Output with transform
                 final_x = int(current_x + tx)
                 final_y = int(current_y + ty)
 
-                # For first move, add pen up first
-                if is_first and not commands:
-                    commands.append("pen up")
+                # CORRECT SYNTAX: pen down X Y (to start at this position)
+                commands.append(f"pen down {final_x} {final_y}")
+                pen_is_down = True
 
-                commands.append(f"pen move {final_x} {final_y}")
-
-                # Process additional coordinate pairs as implicit lineto
+                # Process additional coordinates as implicit lineto
                 j = 2
                 while j + 1 < len(coords):
-                    if not pen_is_down:
-                        commands.append("pen down")
-                        pen_is_down = True
-
                     if cmd == 'M':
                         current_x = coords[j]
                         current_y = coords[j+1]
@@ -158,7 +149,10 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
         elif cmd in 'Ll':  # Line
             if not pen_is_down:
-                commands.append("pen down")
+                # If pen not down, we need to start at current position
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
             j = 0
@@ -177,7 +171,9 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
         elif cmd in 'Hh':  # Horizontal line
             if not pen_is_down:
-                commands.append("pen down")
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
             for coord in coords:
@@ -192,7 +188,9 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
         elif cmd in 'Vv':  # Vertical line
             if not pen_is_down:
-                commands.append("pen down")
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
             for coord in coords:
@@ -207,13 +205,13 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
         elif cmd in 'Cc':  # Cubic Bezier
             if not pen_is_down:
-                commands.append("pen down")
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
-            # Process in groups of 6 coordinates (x1,y1, x2,y2, x,y)
             j = 0
             while j + 5 < len(coords):
-                # Approximate curve by using the end point
                 if cmd == 'C':
                     current_x = coords[j+4]
                     current_y = coords[j+5]
@@ -228,10 +226,11 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
         elif cmd in 'Ss':  # Smooth cubic Bezier
             if not pen_is_down:
-                commands.append("pen down")
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
-            # Process in groups of 4 coordinates (x2,y2, x,y)
             j = 0
             while j + 3 < len(coords):
                 if cmd == 'S':
@@ -248,7 +247,6 @@ def parse_path_data(path_data, tx, ty, is_first=False):
 
         elif cmd in 'Zz':  # Close path
             if pen_is_down and (current_x != start_x or current_y != start_y):
-                # Draw line back to start
                 current_x, current_y = start_x, start_y
                 final_x = int(current_x + tx)
                 final_y = int(current_y + ty)
@@ -269,7 +267,7 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
     comp_path = Path(components_dir)
     if comp_path.exists():
         for svg_file in sorted(comp_path.glob('*.svg')):
-            if svg_file.name != 'Library.svg':  # Skip library file
+            if svg_file.name != 'Library.svg':
                 name = svg_file.stem
                 commands = parse_svg_to_lamp_commands(str(svg_file))
                 if commands:
@@ -281,7 +279,6 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
     font_path = Path(fonts_dir)
     if font_path.exists():
         for svg_file in sorted(font_path.glob('*.svg')):
-            # Extract character from filename (e.g., "A.svg" -> "A", "0.svg" -> "0")
             char = svg_file.stem
             commands = parse_svg_to_lamp_commands(str(svg_file))
             if commands:
@@ -294,8 +291,10 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
 // Generated from SVG assets - DO NOT EDIT MANUALLY
 // Build: make library (from src/ directory)
 //
-// Location: src/elxnk/component_library.h
-// Generated by: tools/svg2header.py (or tools/svg_to_lamp_smartv2.py for standalone use)
+// LAMP COMMAND SYNTAX:
+//   pen down X Y  - Put pen down at (X,Y), start drawing
+//   pen move X Y  - Draw line from current position to (X,Y)
+//   pen up        - Lift pen, stop drawing
 
 #ifndef ELXNK_LIBRARY_H
 #define ELXNK_LIBRARY_H

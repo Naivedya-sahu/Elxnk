@@ -2,10 +2,18 @@
 """
 SVG to Lamp Command Converter - Smart V2
 Standalone script to convert individual SVG files to lamp commands
-Based on original svg2lamp.sh logic
+
+IMPORTANT: Lamp commands use ABSOLUTE pixel coordinates (1404x1872 screen)
+  - offset_x, offset_y: Absolute screen position
+  - scale: Scaling factor for component size
+  - Output: pen down/move commands with absolute pixel coordinates
 
 Usage:
     python3 svg_to_lamp_smartv2.py R.svg [offset_x] [offset_y] [scale]
+
+Example:
+    python3 svg_to_lamp_smartv2.py R.svg 500 500 2.0
+    # Outputs commands like: pen down 502 502 (absolute screen pixels)
 
 Output: Lamp commands to stdout (one per line)
 """
@@ -130,102 +138,104 @@ def parse_path_data(path_data, tx, ty, offset_x, offset_y, scale, is_first=False
                     commands.append("pen up")
                     pen_is_down = False
 
-                # Calculate new position
+                # Calculate new position in UNTRANSFORMED space
                 if cmd == 'M':  # Absolute
-                    new_x = coords[0] + tx
-                    new_y = coords[1] + ty
+                    current_x = coords[0]
+                    current_y = coords[1]
                 else:  # Relative
-                    new_x = current_x + coords[0]
-                    new_y = current_y + coords[1]
+                    current_x += coords[0]
+                    current_y += coords[1]
 
-                current_x, current_y = new_x, new_y
-                start_x, start_y = new_x, new_y
+                start_x, start_y = current_x, current_y
 
-                # Transform and scale
-                final_x = int(current_x * scale + offset_x)
-                final_y = int(current_y * scale + offset_y)
+                # Apply transform, scale, then offset (absolute screen pixels)
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
 
                 # For first move, add pen up first
                 if is_first and not commands:
                     commands.append("pen up")
 
-                commands.append(f"pen move {final_x} {final_y}")
+                # CORRECT SYNTAX: pen down X Y (starts drawing at absolute screen position)
+                commands.append(f"pen down {final_x} {final_y}")
+                pen_is_down = True
 
                 # Process additional coordinate pairs as implicit lineto
                 j = 2
                 while j + 1 < len(coords):
-                    if not pen_is_down:
-                        commands.append("pen down")
-                        pen_is_down = True
-
                     if cmd == 'M':
-                        new_x = coords[j] + tx
-                        new_y = coords[j+1] + ty
+                        current_x = coords[j]
+                        current_y = coords[j+1]
                     else:
-                        new_x = current_x + coords[j]
-                        new_y = current_y + coords[j+1]
+                        current_x += coords[j]
+                        current_y += coords[j+1]
 
-                    current_x, current_y = new_x, new_y
-                    final_x = int(current_x * scale + offset_x)
-                    final_y = int(current_y * scale + offset_y)
+                    final_x = int((current_x + tx) * scale + offset_x)
+                    final_y = int((current_y + ty) * scale + offset_y)
                     commands.append(f"pen move {final_x} {final_y}")
                     j += 2
 
         elif cmd in 'Ll':  # Line
             if not pen_is_down:
-                commands.append("pen down")
+                # Start drawing at current position
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
             j = 0
             while j + 1 < len(coords):
                 if cmd == 'L':  # Absolute
-                    new_x = coords[j] + tx
-                    new_y = coords[j+1] + ty
+                    current_x = coords[j]
+                    current_y = coords[j+1]
                 else:  # Relative
-                    new_x = current_x + coords[j]
-                    new_y = current_y + coords[j+1]
+                    current_x += coords[j]
+                    current_y += coords[j+1]
 
-                current_x, current_y = new_x, new_y
-                final_x = int(current_x * scale + offset_x)
-                final_y = int(current_y * scale + offset_y)
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 2
 
         elif cmd in 'Hh':  # Horizontal line
             if not pen_is_down:
-                commands.append("pen down")
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
             for coord in coords:
                 if cmd == 'H':
-                    new_x = coord + tx
+                    current_x = coord
                 else:
-                    new_x = current_x + coord
+                    current_x += coord
 
-                current_x = new_x
-                final_x = int(current_x * scale + offset_x)
-                final_y = int(current_y * scale + offset_y)
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
                 commands.append(f"pen move {final_x} {final_y}")
 
         elif cmd in 'Vv':  # Vertical line
             if not pen_is_down:
-                commands.append("pen down")
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
             for coord in coords:
                 if cmd == 'V':
-                    new_y = coord + ty
+                    current_y = coord
                 else:
-                    new_y = current_y + coord
+                    current_y += coord
 
-                current_y = new_y
-                final_x = int(current_x * scale + offset_x)
-                final_y = int(current_y * scale + offset_y)
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
                 commands.append(f"pen move {final_x} {final_y}")
 
         elif cmd in 'Cc':  # Cubic Bezier
             if not pen_is_down:
-                commands.append("pen down")
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
+                commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
             # Process in groups of 6 coordinates (x1,y1, x2,y2, x,y)
@@ -233,15 +243,14 @@ def parse_path_data(path_data, tx, ty, offset_x, offset_y, scale, is_first=False
             while j + 5 < len(coords):
                 # We approximate curve by just using the end point
                 if cmd == 'C':
-                    new_x = coords[j+4] + tx
-                    new_y = coords[j+5] + ty
+                    current_x = coords[j+4]
+                    current_y = coords[j+5]
                 else:
-                    new_x = current_x + coords[j+4]
-                    new_y = current_y + coords[j+5]
+                    current_x += coords[j+4]
+                    current_y += coords[j+5]
 
-                current_x, current_y = new_x, new_y
-                final_x = int(current_x * scale + offset_x)
-                final_y = int(current_y * scale + offset_y)
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 6
 
@@ -249,8 +258,8 @@ def parse_path_data(path_data, tx, ty, offset_x, offset_y, scale, is_first=False
             if pen_is_down and (current_x != start_x or current_y != start_y):
                 # Draw line back to start
                 current_x, current_y = start_x, start_y
-                final_x = int(current_x * scale + offset_x)
-                final_y = int(current_y * scale + offset_y)
+                final_x = int((current_x + tx) * scale + offset_x)
+                final_y = int((current_y + ty) * scale + offset_y)
                 commands.append(f"pen move {final_x} {final_y}")
 
     # Ensure pen is up at the end
