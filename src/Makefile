@@ -143,7 +143,7 @@ status:
 	@ssh root@$(HOST) "systemctl is-active elxnk && echo '✓ Running' || echo '✗ Stopped'"
 	@echo ""
 	@echo "=== Processes ==="
-	@ssh root@$(HOST) "ps aux | grep -E 'elxnk|lamp|genie' | grep -v grep" || echo "No processes running"
+	@ssh root@$(HOST) "ps | grep -E 'elxnk|lamp|genie' | grep -v grep" || echo "No processes running"
 	@echo ""
 	@echo "=== Recent Logs ==="
 	@ssh root@$(HOST) "tail -10 /tmp/elxnk.log 2>/dev/null || echo 'No logs yet'"
