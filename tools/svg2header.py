@@ -3,165 +3,266 @@
 SVG to Lamp Command Converter
 Converts SVG files to embedded C header with lamp drawing commands
 Pre-processes all components and fonts at build time
+
+This uses the same parsing logic as svg_to_lamp_smartv2.py
 """
 
 import re
 import sys
 import os
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 import xml.etree.ElementTree as ET
 
 
-class SVGToLampConverter:
-    """Converts SVG path data to lamp pen commands"""
+def parse_svg_to_lamp_commands(svg_path):
+    """
+    Parse SVG file and generate lamp commands.
+    Uses proper coordinate transformation and pen control.
+    """
+    try:
+        tree = ET.parse(svg_path)
+        root = tree.getroot()
 
-    def __init__(self):
-        self.commands = []
+        # Handle namespaces
+        ns = {'svg': 'http://www.w3.org/2000/svg'}
 
-    def parse_svg_file(self, svg_path: str) -> List[str]:
-        """Parse SVG file and extract lamp commands"""
-        try:
-            tree = ET.parse(svg_path)
-            root = tree.getroot()
+        # Get transform from group if exists
+        groups = root.findall('.//svg:g', ns) or root.findall('.//g')
+        transform_x, transform_y = 0, 0
+        if groups:
+            transform = groups[0].get('transform', '')
+            match = re.search(r'translate\(([^,]+),([^)]+)\)', transform)
+            if match:
+                transform_x = float(match.group(1))
+                transform_y = float(match.group(2))
 
-            # Handle namespaces
-            ns = {'svg': 'http://www.w3.org/2000/svg'}
-            paths = root.findall('.//svg:path', ns) or root.findall('.//path')
+        # Find all path elements
+        paths = root.findall('.//svg:path', ns) or root.findall('.//path')
 
-            if not paths:
-                print(f"Warning: No paths found in {svg_path}", file=sys.stderr)
-                return []
-
-            all_commands = []
-            for path in paths:
-                d = path.get('d', '')
-                if d:
-                    all_commands.extend(self.parse_path_data(d))
-
-            return all_commands
-
-        except Exception as e:
-            print(f"Error parsing {svg_path}: {e}", file=sys.stderr)
+        if not paths:
+            print(f"Warning: No paths found in {svg_path}", file=sys.stderr)
             return []
 
-    def parse_path_data(self, path_data: str) -> List[str]:
-        """Parse SVG path data into lamp commands"""
         commands = []
+        first_path = True
 
-        # CRITICAL: Always start with pen up to avoid drawing from 0,0
-        commands.append("pen up")
+        for path in paths:
+            path_data = path.get('d', '')
+            if not path_data:
+                continue
 
-        # Simple tokenizer for SVG path commands
-        # Handles: M/m (moveto), L/l (lineto), H/h (horizontal), V/v (vertical), C/c (cubic bezier)
-        tokens = re.findall(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?\d*\.?\d+', path_data)
-
-        i = 0
-        current_x, current_y = 0, 0
-        pen_down = False
-
-        while i < len(tokens):
-            cmd = tokens[i]
-
-            if cmd in 'MmLlHhVvCcSsQqTtAa':
-                # Get coordinates for this command
-                coords = []
-                i += 1
-                while i < len(tokens) and tokens[i] not in 'MmLlHhVvCcSsQqTtAaZz':
-                    try:
-                        coords.append(float(tokens[i]))
-                    except ValueError:
-                        break
-                    i += 1
-
-                if cmd in 'Mm':  # Move
-                    if len(coords) >= 2:
-                        if pen_down:
-                            commands.append("pen up")
-                            pen_down = False
-
-                        if cmd == 'M':  # Absolute
-                            current_x, current_y = coords[0], coords[1]
-                        else:  # Relative
-                            current_x += coords[0]
-                            current_y += coords[1]
-
-                        commands.append(f"pen move {int(current_x)} {int(current_y)}")
-                        # Note: In SVG, M starts a new subpath but doesn't draw
-                        # The next command (usually L) will draw from this point
-                        # So we DON'T auto-add "pen down" here
-
-                elif cmd in 'Ll':  # Line
-                    if not pen_down:
-                        commands.append("pen down")
-                        pen_down = True
-
-                    j = 0
-                    while j + 1 < len(coords):
-                        if cmd == 'L':  # Absolute
-                            current_x, current_y = coords[j], coords[j+1]
-                        else:  # Relative
-                            current_x += coords[j]
-                            current_y += coords[j+1]
-                        commands.append(f"pen move {int(current_x)} {int(current_y)}")
-                        j += 2
-
-                elif cmd in 'Hh':  # Horizontal line
-                    if not pen_down:
-                        commands.append("pen down")
-                        pen_down = True
-
-                    if cmd == 'H':
-                        current_x = coords[0]
-                    else:
-                        current_x += coords[0]
-                    commands.append(f"pen move {int(current_x)} {int(current_y)}")
-
-                elif cmd in 'Vv':  # Vertical line
-                    if not pen_down:
-                        commands.append("pen down")
-                        pen_down = True
-
-                    if cmd == 'V':
-                        current_y = coords[0]
-                    else:
-                        current_y += coords[0]
-                    commands.append(f"pen move {int(current_x)} {int(current_y)}")
-
-                elif cmd in 'Cc':  # Cubic Bezier - approximate with endpoint
-                    if not pen_down:
-                        commands.append("pen down")
-                        pen_down = True
-
-                    if len(coords) >= 6:
-                        # Take endpoint (last 2 coords)
-                        if cmd == 'C':
-                            current_x, current_y = coords[-2], coords[-1]
-                        else:
-                            current_x += coords[-2]
-                            current_y += coords[-1]
-                        commands.append(f"pen move {int(current_x)} {int(current_y)}")
-
-                elif cmd == 'Z' or cmd == 'z':  # Close path
-                    i += 1
-                    # Path will be closed automatically by next move
-
-                else:
-                    # Unsupported command, skip
-                    i += 1
-            else:
-                i += 1
-
-        if pen_down:
-            commands.append("pen up")
+            # Parse path data
+            path_commands = parse_path_data(
+                path_data,
+                transform_x,
+                transform_y,
+                is_first=first_path
+            )
+            commands.extend(path_commands)
+            first_path = False
 
         return commands
+
+    except Exception as e:
+        print(f"Error parsing {svg_path}: {e}", file=sys.stderr)
+        return []
+
+
+def parse_path_data(path_data, tx, ty, is_first=False):
+    """
+    Parse SVG path data string into lamp commands.
+
+    tx, ty: transform translation from SVG group (normalizes coordinates to 0,0 origin)
+    is_first: whether this is the first path
+    """
+    commands = []
+
+    # Tokenize: extract commands (M,L,H,V,C,Z etc) and numbers
+    tokens = re.findall(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', path_data)
+
+    i = 0
+    # Track position in UNTRANSFORMED coordinate space
+    # Transform (tx, ty) is applied ONLY when outputting coordinates
+    current_x, current_y = 0.0, 0.0
+    start_x, start_y = 0.0, 0.0
+    pen_is_down = False
+
+    while i < len(tokens):
+        if i >= len(tokens):
+            break
+
+        cmd = tokens[i]
+
+        # Skip if not a command
+        if not cmd[0].isalpha():
+            i += 1
+            continue
+
+        # Collect coordinate parameters
+        coords = []
+        i += 1
+        while i < len(tokens) and not tokens[i][0].isalpha():
+            try:
+                coords.append(float(tokens[i]))
+            except ValueError:
+                break
+            i += 1
+
+        # Process command
+        if cmd in 'Mm':  # Move
+            if len(coords) >= 2:
+                # Lift pen if down
+                if pen_is_down:
+                    commands.append("pen up")
+                    pen_is_down = False
+
+                # Update position in UNTRANSFORMED space
+                if cmd == 'M':  # Absolute
+                    current_x = coords[0]
+                    current_y = coords[1]
+                else:  # Relative
+                    current_x += coords[0]
+                    current_y += coords[1]
+
+                start_x, start_y = current_x, current_y
+
+                # Apply transform when outputting
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+
+                # For first move, add pen up first
+                if is_first and not commands:
+                    commands.append("pen up")
+
+                commands.append(f"pen move {final_x} {final_y}")
+
+                # Process additional coordinate pairs as implicit lineto
+                j = 2
+                while j + 1 < len(coords):
+                    if not pen_is_down:
+                        commands.append("pen down")
+                        pen_is_down = True
+
+                    if cmd == 'M':
+                        current_x = coords[j]
+                        current_y = coords[j+1]
+                    else:
+                        current_x += coords[j]
+                        current_y += coords[j+1]
+
+                    final_x = int(current_x + tx)
+                    final_y = int(current_y + ty)
+                    commands.append(f"pen move {final_x} {final_y}")
+                    j += 2
+
+        elif cmd in 'Ll':  # Line
+            if not pen_is_down:
+                commands.append("pen down")
+                pen_is_down = True
+
+            j = 0
+            while j + 1 < len(coords):
+                if cmd == 'L':  # Absolute
+                    current_x = coords[j]
+                    current_y = coords[j+1]
+                else:  # Relative
+                    current_x += coords[j]
+                    current_y += coords[j+1]
+
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen move {final_x} {final_y}")
+                j += 2
+
+        elif cmd in 'Hh':  # Horizontal line
+            if not pen_is_down:
+                commands.append("pen down")
+                pen_is_down = True
+
+            for coord in coords:
+                if cmd == 'H':
+                    current_x = coord
+                else:
+                    current_x += coord
+
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen move {final_x} {final_y}")
+
+        elif cmd in 'Vv':  # Vertical line
+            if not pen_is_down:
+                commands.append("pen down")
+                pen_is_down = True
+
+            for coord in coords:
+                if cmd == 'V':
+                    current_y = coord
+                else:
+                    current_y += coord
+
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen move {final_x} {final_y}")
+
+        elif cmd in 'Cc':  # Cubic Bezier
+            if not pen_is_down:
+                commands.append("pen down")
+                pen_is_down = True
+
+            # Process in groups of 6 coordinates (x1,y1, x2,y2, x,y)
+            j = 0
+            while j + 5 < len(coords):
+                # Approximate curve by using the end point
+                if cmd == 'C':
+                    current_x = coords[j+4]
+                    current_y = coords[j+5]
+                else:
+                    current_x += coords[j+4]
+                    current_y += coords[j+5]
+
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen move {final_x} {final_y}")
+                j += 6
+
+        elif cmd in 'Ss':  # Smooth cubic Bezier
+            if not pen_is_down:
+                commands.append("pen down")
+                pen_is_down = True
+
+            # Process in groups of 4 coordinates (x2,y2, x,y)
+            j = 0
+            while j + 3 < len(coords):
+                if cmd == 'S':
+                    current_x = coords[j+2]
+                    current_y = coords[j+3]
+                else:
+                    current_x += coords[j+2]
+                    current_y += coords[j+3]
+
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen move {final_x} {final_y}")
+                j += 4
+
+        elif cmd in 'Zz':  # Close path
+            if pen_is_down and (current_x != start_x or current_y != start_y):
+                # Draw line back to start
+                current_x, current_y = start_x, start_y
+                final_x = int(current_x + tx)
+                final_y = int(current_y + ty)
+                commands.append(f"pen move {final_x} {final_y}")
+
+    # Ensure pen is up at the end
+    if pen_is_down:
+        commands.append("pen up")
+
+    return commands
 
 
 def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
     """Generate C header file with embedded component and font data"""
-
-    converter = SVGToLampConverter()
 
     # Collect all components
     components = {}
@@ -170,7 +271,7 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
         for svg_file in sorted(comp_path.glob('*.svg')):
             if svg_file.name != 'Library.svg':  # Skip library file
                 name = svg_file.stem
-                commands = converter.parse_svg_file(str(svg_file))
+                commands = parse_svg_to_lamp_commands(str(svg_file))
                 if commands:
                     components[name] = commands
                     print(f"Processed component: {name} ({len(commands)} commands)")
@@ -182,7 +283,7 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
         for svg_file in sorted(font_path.glob('*.svg')):
             # Extract character from filename (e.g., "A.svg" -> "A", "0.svg" -> "0")
             char = svg_file.stem
-            commands = converter.parse_svg_file(str(svg_file))
+            commands = parse_svg_to_lamp_commands(str(svg_file))
             if commands:
                 fonts[char] = commands
                 print(f"Processed font: {char} ({len(commands)} commands)")
@@ -191,7 +292,10 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
     with open(output_file, 'w') as f:
         f.write("""// Auto-generated component and font library
 // Generated from SVG assets - DO NOT EDIT MANUALLY
-// Build: make generate-library
+// Build: make library (from src/ directory)
+//
+// Location: src/elxnk/component_library.h
+// Generated by: tools/svg2header.py (or tools/svg_to_lamp_smartv2.py for standalone use)
 
 #ifndef ELXNK_LIBRARY_H
 #define ELXNK_LIBRARY_H
@@ -275,64 +379,6 @@ inline const FontGlyph* find_glyph(char c) {
         }
     }
     return nullptr;
-}
-
-// Send component to lamp with offset and scale
-inline void render_component(const char* name, int offset_x, int offset_y, float scale, int lamp_fd) {
-    const Component* comp = find_component(name);
-    if (!comp) return;
-
-    for (int i = 0; i < comp->count; i++) {
-        std::string cmd = comp->commands[i].cmd;
-
-        // Parse and transform coordinates
-        if (cmd.find("pen move") == 0) {
-            int x, y;
-            if (sscanf(cmd.c_str(), "pen move %d %d", &x, &y) == 2) {
-                x = (int)(x * scale) + offset_x;
-                y = (int)(y * scale) + offset_y;
-                cmd = "pen move " + std::to_string(x) + " " + std::to_string(y);
-            }
-        }
-
-        cmd += "\\n";
-        write(lamp_fd, cmd.c_str(), cmd.length());
-    }
-}
-
-// Render text with fonts
-inline void render_text(const char* text, int x, int y, float scale, int spacing, int lamp_fd) {
-    int offset_x = x;
-
-    for (const char* p = text; *p; p++) {
-        char c = toupper(*p);  // Convert to uppercase
-
-        if (c == ' ') {
-            offset_x += spacing;
-            continue;
-        }
-
-        const FontGlyph* glyph = find_glyph(c);
-        if (!glyph) continue;
-
-        for (int i = 0; i < glyph->count; i++) {
-            std::string cmd = glyph->commands[i].cmd;
-
-            if (cmd.find("pen move") == 0) {
-                int gx, gy;
-                if (sscanf(cmd.c_str(), "pen move %d %d", &gx, &gy) == 2) {
-                    gx = (int)(gx * scale) + offset_x;
-                    gy = (int)(gy * scale) + y;
-                    cmd = "pen move " + std::to_string(gx) + " " + std::to_string(gy);
-                }
-            }
-
-            cmd += "\\n";
-            write(lamp_fd, cmd.c_str(), cmd.length());
-        }
-
-        offset_x += (int)(25 * scale);  // Character spacing
-    }
 }
 
 } // namespace elxnk
