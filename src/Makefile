@@ -17,11 +17,13 @@ ASSETS_DIR = ../assets
 ELXNK_BIN = $(BIN_DIR)/elxnk
 GENIE_BIN = $(BIN_DIR)/genie_lamp
 LAMP_BIN = $(BIN_DIR)/lamp
+RENDER_BIN = $(BIN_DIR)/render_component
 
 # Source files
 ELXNK_SRC = elxnk/elxnk_main.cpp
 GENIE_SRC = genie_lamp/main.cpp
 LAMP_SRC = lamp/main.cpp
+RENDER_SRC = elxnk/render_component.cpp
 ELXNK_LIB = elxnk/component_library.h
 
 # Deployment config
@@ -32,9 +34,9 @@ INSTALL_SYSTEMD = /etc/systemd/system
 DEPLOY_DIR = /home/root/lamp-v2
 
 # Build targets
-.PHONY: all clean library elxnk genie lamp install deploy status help
+.PHONY: all clean library elxnk genie lamp render install deploy status help
 
-all: library elxnk genie lamp
+all: library elxnk genie lamp render
 	@echo ""
 	@echo "=== Build Complete ==="
 	@echo "Binaries:"
@@ -77,6 +79,14 @@ $(LAMP_BIN): lamp/main.cpp | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ lamp/main.cpp
 	@echo "Built: $@"
 
+# Build render_component helper (uses embedded library!)
+render: $(RENDER_BIN)
+
+$(RENDER_BIN): $(RENDER_SRC) $(ELXNK_LIB) | $(BIN_DIR)
+	@echo "Building render_component (uses embedded library)..."
+	$(CXX) $(CXXFLAGS) -o $@ $(RENDER_SRC)
+	@echo "Built: $@"
+
 # Create build directory
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -95,9 +105,12 @@ install: all
 	scp $(ELXNK_BIN) root@$(HOST):$(INSTALL_BIN)/elxnk
 	scp $(GENIE_BIN) root@$(HOST):$(INSTALL_BIN)/genie_lamp
 	scp $(LAMP_BIN) root@$(HOST):$(INSTALL_BIN)/lamp
+	scp $(RENDER_BIN) root@$(HOST):$(INSTALL_BIN)/render_component
 	scp ui_state.sh root@$(HOST):$(INSTALL_BIN)/ui_state.sh
-	ssh root@$(HOST) "chmod +x $(INSTALL_BIN)/{elxnk,genie_lamp,lamp,ui_state.sh}"
-	@echo "Binaries installed"
+	scp test_components.sh root@$(HOST):$(INSTALL_BIN)/test_components.sh
+	scp test_fonts.sh root@$(HOST):$(INSTALL_BIN)/test_fonts.sh
+	ssh root@$(HOST) "chmod +x $(INSTALL_BIN)/*"
+	@echo "Binaries and test scripts installed"
 
 # Full deployment
 deploy: all
@@ -173,6 +186,7 @@ help:
 	@echo "  elxnk        Build elxnk controller only"
 	@echo "  genie        Build genie_lamp only"
 	@echo "  lamp         Build lamp only"
+	@echo "  render       Build render_component (uses embedded library!)"
 	@echo "  clean        Remove all build artifacts"
 	@echo ""
 	@echo "Deployment:"
@@ -186,6 +200,13 @@ help:
 	@echo "  restart      Restart elxnk service"
 	@echo "  status       Show service status"
 	@echo "  logs         View logs (tail -f)"
+	@echo ""
+	@echo "Testing (on reMarkable after deployment):"
+	@echo "  render_component list            # List all components"
+	@echo "  render_component R 500 500       # Render resistor"
+	@echo "  render_component text 100 100 ABC  # Render text"
+	@echo "  test_components.sh               # Test all components"
+	@echo "  test_fonts.sh                    # Test font rendering"
 	@echo ""
 	@echo "Variables:"
 	@echo "  HOST         reMarkable IP (default: 10.11.99.1)"
