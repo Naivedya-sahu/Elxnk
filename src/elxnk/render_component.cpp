@@ -1,6 +1,16 @@
 // Component Renderer - Uses embedded component_library.h
 // Renders components by sending lamp commands to the pipe
 // This is the binary that actually USES the embedded library!
+//
+// COORDINATE SYSTEM:
+//   - Component library: Normalized coordinates (e.g., 0-10 for small components)
+//   - This binary: Transforms to ABSOLUTE screen pixels (1404x1872)
+//   - Lamp receives: Absolute pixel coordinates for reMarkable 2 display
+//
+//   Example: Component has "pen down 1 1"
+//            User calls: render_component("R", 500, 500, 2.0)
+//            Transform: (1 * 2.0) + 500 = 502
+//            Lamp gets: "pen down 502 502" (absolute screen pixel)
 
 #include <stdio.h>
 #include <stdlib.h>

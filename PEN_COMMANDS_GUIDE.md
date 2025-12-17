@@ -1,5 +1,27 @@
 # Pen Commands Build System Guide
 
+## CRITICAL: Lamp Uses Absolute Screen Coordinates
+
+**reMarkable 2 Display**: 1404 x 1872 pixels
+
+**Lamp command format**:
+- `pen down X Y` - X and Y are ABSOLUTE pixel coordinates (0-1404, 0-1872)
+- `pen move X Y` - X and Y are ABSOLUTE pixel coordinates
+- `pen up` - No coordinates
+
+**Coordinate Flow**:
+1. **Component Library**: Normalized coordinates (e.g., `pen down 1 1`)
+2. **render_component**: Transforms to absolute screen pixels: `(1 * scale) + offset_x`
+3. **Lamp**: Receives absolute coordinates (e.g., `pen down 502 502`)
+
+**Example**:
+```bash
+render_component R 500 500 2.0
+# Component lib: pen down 1 1
+# Transform: (1 * 2.0) + 500 = 502, (1 * 2.0) + 500 = 502
+# Lamp gets: pen down 502 502  (absolute screen pixel)
+```
+
 ## Where Pen Commands Are Built
 
 The pen commands for all components and fonts are built during compilation and stored in:
