@@ -95,7 +95,8 @@ install: all
 	scp $(ELXNK_BIN) root@$(HOST):$(INSTALL_BIN)/elxnk
 	scp $(GENIE_BIN) root@$(HOST):$(INSTALL_BIN)/genie_lamp
 	scp $(LAMP_BIN) root@$(HOST):$(INSTALL_BIN)/lamp
-	ssh root@$(HOST) "chmod +x $(INSTALL_BIN)/{elxnk,genie_lamp,lamp}"
+	scp ui_state.sh root@$(HOST):$(INSTALL_BIN)/ui_state.sh
+	ssh root@$(HOST) "chmod +x $(INSTALL_BIN)/{elxnk,genie_lamp,lamp,ui_state.sh}"
 	@echo "Binaries installed"
 
 # Full deployment
