@@ -126,12 +126,9 @@ static const LampCommand NMOS_commands[] = {
     {"pen move 72 55"},
     {"pen move 62 52"},
     {"pen up"},
-    {"pen circle 68 52 28 28"},
     {"pen down 77 26"},
     {"pen move 77 34"},
     {"pen up"},
-    {"pen circle 77 34 3 3"},
-    {"pen circle 77 69 3 3"},
     {"pen down 77 77"},
     {"pen move 77 52"},
     {"pen move 59 52"},
@@ -162,6 +159,9 @@ static const LampCommand NMOS_commands[] = {
     {"pen down 77 77"},
     {"pen move 77 102"},
     {"pen up"},
+    {"pen circle 68 52 28 28"},
+    {"pen circle 77 34 3 3"},
+    {"pen circle 77 69 3 3"},
 };
 
 // Component: NPN
@@ -178,7 +178,6 @@ static const LampCommand NPN_commands[] = {
     {"pen down 58 58"},
     {"pen move 77 77"},
     {"pen up"},
-    {"pen circle 64 52 28 28"},
     {"pen down 64 69"},
     {"pen move 69 64"},
     {"pen move 74 74"},
@@ -202,6 +201,7 @@ static const LampCommand NPN_commands[] = {
     {"pen down 77 77"},
     {"pen move 77 102"},
     {"pen up"},
+    {"pen circle 64 52 28 28"},
 };
 
 // Component: NP_C
@@ -275,7 +275,6 @@ static const LampCommand PMOS_commands[] = {
     {"pen down 59 64"},
     {"pen move 59 74"},
     {"pen up"},
-    {"pen circle 68 52 28 28"},
     {"pen down 74 52"},
     {"pen move 64 48"},
     {"pen move 64 55"},
@@ -284,8 +283,6 @@ static const LampCommand PMOS_commands[] = {
     {"pen down 77 26"},
     {"pen move 77 34"},
     {"pen up"},
-    {"pen circle 77 34 3 3"},
-    {"pen circle 77 69 3 3"},
     {"pen down 77 77"},
     {"pen move 77 52"},
     {"pen move 59 52"},
@@ -316,6 +313,9 @@ static const LampCommand PMOS_commands[] = {
     {"pen down 77 77"},
     {"pen move 77 102"},
     {"pen up"},
+    {"pen circle 68 52 28 28"},
+    {"pen circle 77 34 3 3"},
+    {"pen circle 77 69 3 3"},
 };
 
 // Component: PNP
@@ -332,7 +332,6 @@ static const LampCommand PNP_commands[] = {
     {"pen down 58 58"},
     {"pen move 77 77"},
     {"pen up"},
-    {"pen circle 64 52 28 28"},
     {"pen down 74 69"},
     {"pen move 69 74"},
     {"pen move 64 64"},
@@ -356,6 +355,7 @@ static const LampCommand PNP_commands[] = {
     {"pen down 77 77"},
     {"pen move 77 102"},
     {"pen up"},
+    {"pen circle 64 52 28 28"},
 };
 
 // Component: P_C
@@ -518,7 +518,6 @@ static const LampCommand VAC_commands[] = {
     {"pen up"},
     {"pen down 27 52"},
     {"pen up"},
-    {"pen circle 27 52 25 25"},
     {"pen down 22 33"},
     {"pen move 32 33"},
     {"pen up"},
@@ -534,6 +533,7 @@ static const LampCommand VAC_commands[] = {
     {"pen down 22 66"},
     {"pen move 32 66"},
     {"pen up"},
+    {"pen circle 27 52 25 25"},
 };
 
 // Component: VAR
@@ -590,7 +590,6 @@ static const LampCommand VDC_commands[] = {
     {"pen down 39 54"},
     {"pen move 34 54"},
     {"pen up"},
-    {"pen circle 27 52 25 25"},
     {"pen down 22 33"},
     {"pen move 32 33"},
     {"pen up"},
@@ -606,6 +605,7 @@ static const LampCommand VDC_commands[] = {
     {"pen down 22 66"},
     {"pen move 32 66"},
     {"pen up"},
+    {"pen circle 27 52 25 25"},
 };
 
 // Component: ZD
@@ -632,6 +632,209 @@ static const LampCommand ZD_commands[] = {
     {"pen up"},
     {"pen down 34 1"},
     {"pen move 26 1"},
+    {"pen up"},
+};
+
+// Font: 0
+static const LampCommand font_0_commands[] = {
+    {"pen down 224 19"},
+    {"pen move 340 191"},
+    {"pen move 264 276"},
+    {"pen move 94 341"},
+    {"pen move 27 191"},
+    {"pen move 224 19"},
+    {"pen up"},
+};
+
+// Font: 1
+static const LampCommand font_1_commands[] = {
+    {"pen down 17 84"},
+    {"pen move 157 24"},
+    {"pen move 157 294"},
+    {"pen move 7 354"},
+    {"pen up"},
+    {"pen down 157 294"},
+    {"pen move 287 274"},
+    {"pen up"},
+};
+
+// Font: 2
+static const LampCommand font_2_commands[] = {
+    {"pen down 68 75"},
+    {"pen move 178 20"},
+    {"pen move 271 115"},
+    {"pen move 168 244"},
+    {"pen move 106 299"},
+    {"pen move 18 385"},
+    {"pen up"},
+    {"pen down 118 295"},
+    {"pen move 348 315"},
+    {"pen up"},
+};
+
+// Font: 3
+static const LampCommand font_3_commands[] = {
+    {"pen down 15 19"},
+    {"pen move 145 29"},
+    {"pen move 235 19"},
+    {"pen up"},
+    {"pen down 215 39"},
+    {"pen move 166 86"},
+    {"pen move 85 159"},
+    {"pen up"},
+    {"pen down 145 149"},
+    {"pen move 275 209"},
+    {"pen move 5 319"},
+    {"pen up"},
+};
+
+// Font: 4
+static const LampCommand font_4_commands[] = {
+    {"pen down 254 7"},
+    {"pen move 229 107"},
+    {"pen move 233 191"},
+    {"pen move 324 217"},
+    {"pen up"},
+    {"pen down 14 217"},
+    {"pen move 234 27"},
+    {"pen up"},
+    {"pen down 34 197"},
+    {"pen move 204 207"},
+    {"pen move 194 337"},
+    {"pen up"},
+};
+
+// Font: 5
+static const LampCommand font_5_commands[] = {
+    {"pen down 10 309"},
+    {"pen move 253 229"},
+    {"pen move 160 162"},
+    {"pen move 81 134"},
+    {"pen move 190 29"},
+    {"pen move 340 19"},
+    {"pen up"},
+};
+
+// Font: 6
+static const LampCommand font_6_commands[] = {
+    {"pen down 95 318"},
+    {"pen move 287 210"},
+    {"pen move 235 301"},
+    {"pen move 41 296"},
+    {"pen move 205 18"},
+    {"pen up"},
+};
+
+// Font: 7
+static const LampCommand font_7_commands[] = {
+    {"pen down 270 12"},
+    {"pen move 100 322"},
+    {"pen up"},
+    {"pen down 0 22"},
+    {"pen move 240 22"},
+    {"pen up"},
+};
+
+// Font: 8
+static const LampCommand font_8_commands[] = {
+    {"pen down 110 187"},
+    {"pen move 45 87"},
+    {"pen move 194 41"},
+    {"pen move 71 227"},
+    {"pen move 35 305"},
+    {"pen move 130 337"},
+    {"pen move 150 187"},
+    {"pen up"},
+    {"pen down 0 297"},
+    {"pen move 20 297"},
+    {"pen up"},
+};
+
+// Font: 9
+static const LampCommand font_9_commands[] = {
+    {"pen down 204 158"},
+    {"pen move 104 188"},
+    {"pen move 23 118"},
+    {"pen move 154 20"},
+    {"pen move 234 59"},
+    {"pen move 210 158"},
+    {"pen move 174 308"},
+    {"pen up"},
+};
+
+// Font: A
+static const LampCommand font_A_commands[] = {
+    {"pen down 135 19"},
+    {"pen move 169 137"},
+    {"pen move 56 233"},
+    {"pen move 22 167"},
+    {"pen move 135 19"},
+    {"pen up"},
+    {"pen down 185 157"},
+    {"pen move 305 207"},
+    {"pen up"},
+};
+
+// Font: B
+static const LampCommand font_B_commands[] = {
+    {"pen down 110 6"},
+    {"pen move 50 266"},
+    {"pen move 120 207"},
+    {"pen move 221 172"},
+    {"pen move 130 360"},
+    {"pen move 40 276"},
+    {"pen up"},
+    {"pen down 0 356"},
+    {"pen move 10 356"},
+    {"pen up"},
+};
+
+// Font: C
+static const LampCommand font_C_commands[] = {
+    {"pen down 250 170"},
+    {"pen move 43 234"},
+    {"pen move 25 120"},
+    {"pen move 150 60"},
+    {"pen up"},
+};
+
+// Font: D
+static const LampCommand font_D_commands[] = {
+    {"pen down 279 5"},
+    {"pen move 251 155"},
+    {"pen move 234 215"},
+    {"pen move 185 285"},
+    {"pen move 25 371"},
+    {"pen move 158 145"},
+    {"pen move 219 225"},
+    {"pen up"},
+    {"pen down 229 225"},
+    {"pen move 249 285"},
+    {"pen move 283 375"},
+    {"pen move 399 325"},
+    {"pen up"},
+};
+
+// Font: E
+static const LampCommand font_E_commands[] = {
+    {"pen down 19 151"},
+    {"pen move 63 45"},
+    {"pen move 137 34"},
+    {"pen move 24 192"},
+    {"pen move 249 161"},
+    {"pen up"},
+};
+
+// Font: F
+static const LampCommand font_F_commands[] = {
+    {"pen down 9 530"},
+    {"pen move 99 300"},
+    {"pen move 110 220"},
+    {"pen move 125 110"},
+    {"pen move 239 70"},
+    {"pen up"},
+    {"pen down 119 220"},
+    {"pen move 229 220"},
     {"pen up"},
 };
 
@@ -921,6 +1124,22 @@ static const int COMPONENT_COUNT = 17;
 
 // Font glyph lookup table
 static const FontGlyph FONT_GLYPHS[] = {
+    {'0', font_0_commands, 7},
+    {'1', font_1_commands, 8},
+    {'2', font_2_commands, 10},
+    {'3', font_3_commands, 12},
+    {'4', font_4_commands, 12},
+    {'5', font_5_commands, 7},
+    {'6', font_6_commands, 6},
+    {'7', font_7_commands, 6},
+    {'8', font_8_commands, 11},
+    {'9', font_9_commands, 8},
+    {'A', font_A_commands, 9},
+    {'B', font_B_commands, 10},
+    {'C', font_C_commands, 5},
+    {'D', font_D_commands, 13},
+    {'E', font_E_commands, 6},
+    {'F', font_F_commands, 9},
     {'G', font_G_commands, 10},
     {'H', font_H_commands, 12},
     {'I', font_I_commands, 6},
@@ -943,7 +1162,7 @@ static const FontGlyph FONT_GLYPHS[] = {
     {'Z', font_Z_commands, 10},
 };
 
-static const int FONT_GLYPH_COUNT = 20;
+static const int FONT_GLYPH_COUNT = 36;
 
 // Helper functions
 inline const Component* find_component(const char* name) {
