@@ -35,6 +35,10 @@ def parse_svg_to_lamp_commands(svg_path):
 
     SVG coordinates (in mm) are scaled to screen pixels using PIXELS_PER_MM.
     The transform is applied to normalize coordinates relative to viewBox origin.
+
+    Works with both:
+    - Components: paths inside <g transform="..."> elements
+    - Fonts: paths directly under root <svg> element
     """
     try:
         tree = ET.parse(svg_path)
@@ -43,9 +47,9 @@ def parse_svg_to_lamp_commands(svg_path):
         # Handle namespaces
         ns = {'svg': 'http://www.w3.org/2000/svg'}
 
-        # Get transform from group if exists
-        groups = root.findall('.//svg:g', ns) or root.findall('.//g')
+        # Get transform from group if exists (components typically have this)
         transform_x, transform_y = 0, 0
+        groups = root.findall('.//svg:g', ns) or root.findall('.//g')
         if groups:
             transform = groups[0].get('transform', '')
             match = re.search(r'translate\(([^,]+),([^)]+)\)', transform)
@@ -55,24 +59,27 @@ def parse_svg_to_lamp_commands(svg_path):
 
         commands = []
 
-        # Process all children in order (paths, circles, rects, lines)
-        for group in groups:
-            for element in group:
-                tag = element.tag.split('}')[-1] if '}' in element.tag else element.tag
+        # Find ALL paths/circles/rects/lines in the document (whether in groups or not)
+        # This handles both components (with <g>) and fonts (paths directly under root)
+        paths = root.findall('.//svg:path', ns) or root.findall('.//path')
+        circles = root.findall('.//svg:circle', ns) or root.findall('.//circle')
+        rects = root.findall('.//svg:rect', ns) or root.findall('.//rect')
+        lines = root.findall('.//svg:line', ns) or root.findall('.//line')
 
-                if tag == 'path':
-                    path_data = element.get('d', '')
-                    if path_data:
-                        commands.extend(parse_path_data(path_data, transform_x, transform_y))
+        # Process all elements (they appear in document order)
+        for path in paths:
+            path_data = path.get('d', '')
+            if path_data:
+                commands.extend(parse_path_data(path_data, transform_x, transform_y))
 
-                elif tag == 'circle':
-                    commands.extend(parse_circle(element, transform_x, transform_y))
+        for circle in circles:
+            commands.extend(parse_circle(circle, transform_x, transform_y))
 
-                elif tag == 'rect':
-                    commands.extend(parse_rect(element, transform_x, transform_y))
+        for rect in rects:
+            commands.extend(parse_rect(rect, transform_x, transform_y))
 
-                elif tag == 'line':
-                    commands.extend(parse_line(element, transform_x, transform_y))
+        for line in lines:
+            commands.extend(parse_line(line, transform_x, transform_y))
 
         if not commands:
             print(f"Warning: No drawable elements found in {svg_path}", file=sys.stderr)
