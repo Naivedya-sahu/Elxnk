@@ -171,6 +171,39 @@ def parse_line(element, tx, ty):
         return []
 
 
+def cubic_bezier_interpolate(p0, p1, p2, p3, steps=10):
+    """
+    Interpolate a cubic bezier curve into line segments.
+
+    p0: (x, y) start point
+    p1: (x, y) first control point
+    p2: (x, y) second control point
+    p3: (x, y) endpoint
+    steps: number of line segments to create (default 10 for smooth curves)
+
+    Returns list of (x, y) points along the curve
+    """
+    points = []
+    for i in range(1, steps + 1):
+        t = i / steps
+        # Cubic bezier formula: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
+        one_minus_t = 1 - t
+
+        x = (one_minus_t ** 3 * p0[0] +
+             3 * one_minus_t ** 2 * t * p1[0] +
+             3 * one_minus_t * t ** 2 * p2[0] +
+             t ** 3 * p3[0])
+
+        y = (one_minus_t ** 3 * p0[1] +
+             3 * one_minus_t ** 2 * t * p1[1] +
+             3 * one_minus_t * t ** 2 * p2[1] +
+             t ** 3 * p3[1])
+
+        points.append((x, y))
+
+    return points
+
+
 def parse_path_data(path_data, tx, ty):
     """
     Parse SVG path data into lamp commands with PIXEL coordinates.
@@ -179,6 +212,7 @@ def parse_path_data(path_data, tx, ty):
     - SVG coordinates are in mm
     - Apply transform (still in mm)
     - Convert to pixels using PIXELS_PER_MM
+    - Cubic bezier curves are INTERPOLATED into multiple line segments for smoothness
     - lamp syntax:
       - pen down X Y (to start drawing at X,Y)
       - pen move X Y (to draw line to X,Y)
@@ -311,7 +345,7 @@ def parse_path_data(path_data, tx, ty):
                 final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen move {final_x} {final_y}")
 
-        elif cmd in 'Cc':  # Cubic Bezier
+        elif cmd in 'Cc':  # Cubic Bezier - INTERPOLATE for smooth curves
             if not pen_is_down:
                 final_x = int(round((current_x + tx) * PIXELS_PER_MM))
                 final_y = int(round((current_y + ty) * PIXELS_PER_MM))
@@ -320,19 +354,36 @@ def parse_path_data(path_data, tx, ty):
 
             j = 0
             while j + 5 < len(coords):
-                if cmd == 'C':
-                    current_x = coords[j+4]
-                    current_y = coords[j+5]
-                else:
-                    current_x += coords[j+4]
-                    current_y += coords[j+5]
+                # Get control points and endpoint
+                if cmd == 'C':  # Absolute
+                    x1, y1 = coords[j], coords[j+1]
+                    x2, y2 = coords[j+2], coords[j+3]
+                    x3, y3 = coords[j+4], coords[j+5]
+                else:  # Relative
+                    x1, y1 = current_x + coords[j], current_y + coords[j+1]
+                    x2, y2 = current_x + coords[j+2], current_y + coords[j+3]
+                    x3, y3 = current_x + coords[j+4], current_y + coords[j+5]
 
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen move {final_x} {final_y}")
+                # Interpolate curve into line segments
+                p0 = (current_x, current_y)
+                p1 = (x1, y1)
+                p2 = (x2, y2)
+                p3 = (x3, y3)
+
+                curve_points = cubic_bezier_interpolate(p0, p1, p2, p3, steps=10)
+
+                # Output interpolated points as line segments
+                for point_x, point_y in curve_points:
+                    final_x = int(round((point_x + tx) * PIXELS_PER_MM))
+                    final_y = int(round((point_y + ty) * PIXELS_PER_MM))
+                    commands.append(f"pen move {final_x} {final_y}")
+
+                # Update current position to endpoint
+                current_x = x3
+                current_y = y3
                 j += 6
 
-        elif cmd in 'Ss':  # Smooth cubic Bezier
+        elif cmd in 'Ss':  # Smooth cubic Bezier - INTERPOLATE
             if not pen_is_down:
                 final_x = int(round((current_x + tx) * PIXELS_PER_MM))
                 final_y = int(round((current_y + ty) * PIXELS_PER_MM))
@@ -341,16 +392,33 @@ def parse_path_data(path_data, tx, ty):
 
             j = 0
             while j + 3 < len(coords):
-                if cmd == 'S':
-                    current_x = coords[j+2]
-                    current_y = coords[j+3]
-                else:
-                    current_x += coords[j+2]
-                    current_y += coords[j+3]
+                # S command has control point 2 and endpoint
+                # First control point is reflection of previous (we approximate)
+                if cmd == 'S':  # Absolute
+                    x2, y2 = coords[j], coords[j+1]
+                    x3, y3 = coords[j+2], coords[j+3]
+                else:  # Relative
+                    x2, y2 = current_x + coords[j], current_y + coords[j+1]
+                    x3, y3 = current_x + coords[j+2], current_y + coords[j+3]
 
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen move {final_x} {final_y}")
+                # Approximate first control point (simplified)
+                x1, y1 = current_x, current_y
+
+                # Interpolate curve
+                p0 = (current_x, current_y)
+                p1 = (x1, y1)
+                p2 = (x2, y2)
+                p3 = (x3, y3)
+
+                curve_points = cubic_bezier_interpolate(p0, p1, p2, p3, steps=10)
+
+                for point_x, point_y in curve_points:
+                    final_x = int(round((point_x + tx) * PIXELS_PER_MM))
+                    final_y = int(round((point_y + ty) * PIXELS_PER_MM))
+                    commands.append(f"pen move {final_x} {final_y}")
+
+                current_x = x3
+                current_y = y3
                 j += 4
 
         elif cmd in 'Zz':  # Close path
