@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """
-SVG to Lamp Command Converter
+SVG to Lamp Command Converter - PIXEL-SCALE VERSION
 Converts SVG files to embedded C header with lamp drawing commands
 Pre-processes all components and fonts at build time
+
+CRITICAL: Coordinates are stored in PIXELS at proper scale for screen placement.
+- reMarkable 2: 1404x1872 pixels, ~226 DPI = ~8.9 pixels/mm
+- Using 10 pixels/mm for clean scaling
+- Components stored at actual pixel sizes (e.g., R resistor: 22x78 pixels)
+- render_component() should apply OFFSET only, NO SCALING
 
 LAMP COMMAND SYNTAX:
   pen down X Y  - Put pen down at position (X,Y) and set current position
   pen move X Y  - Draw line from current position to (X,Y)
   pen up        - Lift pen
+  pen circle X Y R1 R2 - Draw circle at (X,Y) with radii R1,R2
 """
 
 import re
@@ -17,11 +24,17 @@ from pathlib import Path
 from typing import List
 import xml.etree.ElementTree as ET
 
+# Scale factor: mm to pixels (reMarkable 2 DPI)
+# reMarkable 2: ~8.9 pixels/mm actual, using 10 for clean math
+PIXELS_PER_MM = 10.0
+
 
 def parse_svg_to_lamp_commands(svg_path):
     """
-    Parse SVG file and generate lamp commands with CORRECT syntax.
-    Handles path, circle, rect, and line elements.
+    Parse SVG file and generate lamp commands with coordinates in PIXELS.
+
+    SVG coordinates (in mm) are scaled to screen pixels using PIXELS_PER_MM.
+    The transform is applied to normalize coordinates relative to viewBox origin.
     """
     try:
         tree = ET.parse(svg_path)
@@ -74,19 +87,23 @@ def parse_svg_to_lamp_commands(svg_path):
 
 
 def parse_circle(element, tx, ty):
-    """Parse circle element and generate lamp circle command"""
+    """Parse circle element and generate lamp circle command with pixel coordinates"""
     try:
         cx = float(element.get('cx', 0))
         cy = float(element.get('cy', 0))
         r = float(element.get('r', 0))
 
-        # Apply transform and round properly (don't truncate small values)
-        final_cx = int(round(cx + tx))
-        final_cy = int(round(cy + ty))
-        final_r = max(1, int(round(r)))  # Ensure minimum radius of 1 pixel
+        # Apply transform (mm space) then convert to pixels
+        cx_mm = cx + tx
+        cy_mm = cy + ty
+        r_mm = r
+
+        # Convert to pixels
+        final_cx = int(round(cx_mm * PIXELS_PER_MM))
+        final_cy = int(round(cy_mm * PIXELS_PER_MM))
+        final_r = max(1, int(round(r_mm * PIXELS_PER_MM)))  # Minimum 1 pixel
 
         # Lamp circle command: pen circle ox oy r1 r2
-        # For a circle, r1 = r2 = radius
         return [f"pen circle {final_cx} {final_cy} {final_r} {final_r}"]
 
     except Exception as e:
@@ -95,18 +112,18 @@ def parse_circle(element, tx, ty):
 
 
 def parse_rect(element, tx, ty):
-    """Parse rect element as 4 lines"""
+    """Parse rect element as 4 lines with pixel coordinates"""
     try:
         x = float(element.get('x', 0))
         y = float(element.get('y', 0))
         width = float(element.get('width', 0))
         height = float(element.get('height', 0))
 
-        # Apply transform with rounding
-        x1 = int(round(x + tx))
-        y1 = int(round(y + ty))
-        x2 = int(round(x + width + tx))
-        y2 = int(round(y + height + ty))
+        # Apply transform (mm space) then convert to pixels
+        x1 = int(round((x + tx) * PIXELS_PER_MM))
+        y1 = int(round((y + ty) * PIXELS_PER_MM))
+        x2 = int(round((x + width + tx) * PIXELS_PER_MM))
+        y2 = int(round((y + height + ty) * PIXELS_PER_MM))
 
         return [
             f"pen down {x1} {y1}",
@@ -123,18 +140,18 @@ def parse_rect(element, tx, ty):
 
 
 def parse_line(element, tx, ty):
-    """Parse line element"""
+    """Parse line element with pixel coordinates"""
     try:
         x1 = float(element.get('x1', 0))
         y1 = float(element.get('y1', 0))
         x2 = float(element.get('x2', 0))
         y2 = float(element.get('y2', 0))
 
-        # Apply transform with rounding
-        fx1 = int(round(x1 + tx))
-        fy1 = int(round(y1 + ty))
-        fx2 = int(round(x2 + tx))
-        fy2 = int(round(y2 + ty))
+        # Apply transform (mm space) then convert to pixels
+        fx1 = int(round((x1 + tx) * PIXELS_PER_MM))
+        fy1 = int(round((y1 + ty) * PIXELS_PER_MM))
+        fx2 = int(round((x2 + tx) * PIXELS_PER_MM))
+        fy2 = int(round((y2 + ty) * PIXELS_PER_MM))
 
         return [
             f"pen down {fx1} {fy1}",
@@ -149,15 +166,16 @@ def parse_line(element, tx, ty):
 
 def parse_path_data(path_data, tx, ty):
     """
-    Parse SVG path data into CORRECT lamp commands.
+    Parse SVG path data into lamp commands with PIXEL coordinates.
 
-    CRITICAL: lamp syntax is:
+    CRITICAL:
+    - SVG coordinates are in mm
+    - Apply transform (still in mm)
+    - Convert to pixels using PIXELS_PER_MM
+    - lamp syntax:
       - pen down X Y (to start drawing at X,Y)
       - pen move X Y (to draw line to X,Y)
       - pen up (to stop drawing)
-
-    NOT:
-      - pen move X Y + pen down (WRONG!)
     """
     commands = []
 
@@ -165,8 +183,8 @@ def parse_path_data(path_data, tx, ty):
     tokens = re.findall(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', path_data)
 
     i = 0
-    current_x, current_y = 0.0, 0.0
-    start_x, start_y = 0.0, 0.0
+    current_x, current_y = 0.0, 0.0  # in mm
+    start_x, start_y = 0.0, 0.0  # in mm
     pen_is_down = False
 
     while i < len(tokens):
@@ -197,7 +215,7 @@ def parse_path_data(path_data, tx, ty):
                     commands.append("pen up")
                     pen_is_down = False
 
-                # Update position
+                # Update position (in mm space)
                 if cmd == 'M':  # Absolute
                     current_x = coords[0]
                     current_y = coords[1]
@@ -207,9 +225,9 @@ def parse_path_data(path_data, tx, ty):
 
                 start_x, start_y = current_x, current_y
 
-                # Output with transform (use round for better accuracy)
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                # Apply transform (mm) then convert to pixels
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
 
                 # CORRECT SYNTAX: pen down X Y (to start at this position)
                 commands.append(f"pen down {final_x} {final_y}")
@@ -225,16 +243,16 @@ def parse_path_data(path_data, tx, ty):
                         current_x += coords[j]
                         current_y += coords[j+1]
 
-                    final_x = int(round(current_x + tx))
-                    final_y = int(round(current_y + ty))
+                    final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                    final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                     commands.append(f"pen move {final_x} {final_y}")
                     j += 2
 
         elif cmd in 'Ll':  # Line
             if not pen_is_down:
                 # If pen not down, we need to start at current position
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -247,15 +265,15 @@ def parse_path_data(path_data, tx, ty):
                     current_x += coords[j]
                     current_y += coords[j+1]
 
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 2
 
         elif cmd in 'Hh':  # Horizontal line
             if not pen_is_down:
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -265,14 +283,14 @@ def parse_path_data(path_data, tx, ty):
                 else:
                     current_x += coord
 
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen move {final_x} {final_y}")
 
         elif cmd in 'Vv':  # Vertical line
             if not pen_is_down:
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -282,14 +300,14 @@ def parse_path_data(path_data, tx, ty):
                 else:
                     current_y += coord
 
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen move {final_x} {final_y}")
 
         elif cmd in 'Cc':  # Cubic Bezier
             if not pen_is_down:
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -302,15 +320,15 @@ def parse_path_data(path_data, tx, ty):
                     current_x += coords[j+4]
                     current_y += coords[j+5]
 
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 6
 
         elif cmd in 'Ss':  # Smooth cubic Bezier
             if not pen_is_down:
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -323,16 +341,16 @@ def parse_path_data(path_data, tx, ty):
                     current_x += coords[j+2]
                     current_y += coords[j+3]
 
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 4
 
         elif cmd in 'Zz':  # Close path
             if pen_is_down and (current_x != start_x or current_y != start_y):
                 current_x, current_y = start_x, start_y
-                final_x = int(round(current_x + tx))
-                final_y = int(round(current_y + ty))
+                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
+                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
                 commands.append(f"pen move {final_x} {final_y}")
 
     # Ensure pen is up at the end
@@ -370,9 +388,14 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
 
     # Generate header file
     with open(output_file, 'w') as f:
-        f.write("""// Auto-generated component and font library
+        f.write("""// Auto-generated component and font library - PIXEL SCALE VERSION
 // Generated from SVG assets - DO NOT EDIT MANUALLY
 // Build: make library (from src/ directory)
+//
+// COORDINATES: Stored in PIXELS at 10 pixels/mm scale
+// - reMarkable 2: 1404x1872 pixels
+// - Example: R resistor is 22x78 pixels (2.2mm x 7.8mm actual size)
+// - render_component() should apply POSITION OFFSET ONLY, NO SCALING
 //
 // LAMP COMMAND SYNTAX:
 //   pen down X Y        - Put pen down at (X,Y), start drawing
