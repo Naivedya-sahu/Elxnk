@@ -100,6 +100,20 @@ void render_component(const char* name, int x, int y, float scale) {
             }
         }
 
+        // Transform pen circle X Y R1 R2
+        if (strncmp(cmd, "pen circle ", 11) == 0) {
+            int cx, cy, r1, r2;
+            if (sscanf(cmd + 11, "%d %d %d %d", &cx, &cy, &r1, &r2) == 4) {
+                cx = (int)(cx * scale) + x;
+                cy = (int)(cy * scale) + y;
+                r1 = (int)(r1 * scale);
+                r2 = (int)(r2 * scale);
+                snprintf(transformed, sizeof(transformed), "pen circle %d %d %d %d\n", cx, cy, r1, r2);
+                write(fd, transformed, strlen(transformed));
+                continue;
+            }
+        }
+
         // Send as-is (pen up, etc.)
         write(fd, cmd, strlen(cmd));
         write(fd, "\n", 1);
@@ -158,6 +172,20 @@ void render_text(int x, int y, const char* text, float scale, int spacing) {
                     gx = (int)(gx * scale) + offset_x;
                     gy = (int)(gy * scale) + y;
                     snprintf(transformed, sizeof(transformed), "pen move %d %d\n", gx, gy);
+                    write(fd, transformed, strlen(transformed));
+                    continue;
+                }
+            }
+
+            // Transform pen circle X Y R1 R2
+            if (strncmp(cmd, "pen circle ", 11) == 0) {
+                int gx, gy, r1, r2;
+                if (sscanf(cmd + 11, "%d %d %d %d", &gx, &gy, &r1, &r2) == 4) {
+                    gx = (int)(gx * scale) + offset_x;
+                    gy = (int)(gy * scale) + y;
+                    r1 = (int)(r1 * scale);
+                    r2 = (int)(r2 * scale);
+                    snprintf(transformed, sizeof(transformed), "pen circle %d %d %d %d\n", gx, gy, r1, r2);
                     write(fd, transformed, strlen(transformed));
                     continue;
                 }

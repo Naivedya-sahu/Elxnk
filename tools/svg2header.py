@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 def parse_svg_to_lamp_commands(svg_path):
     """
     Parse SVG file and generate lamp commands with CORRECT syntax.
+    Handles path, circle, rect, and line elements.
     """
     try:
         tree = ET.parse(svg_path)
@@ -39,28 +40,110 @@ def parse_svg_to_lamp_commands(svg_path):
                 transform_x = float(match.group(1))
                 transform_y = float(match.group(2))
 
-        # Find all path elements
-        paths = root.findall('.//svg:path', ns) or root.findall('.//path')
-
-        if not paths:
-            print(f"Warning: No paths found in {svg_path}", file=sys.stderr)
-            return []
-
         commands = []
 
-        for path in paths:
-            path_data = path.get('d', '')
-            if not path_data:
-                continue
+        # Process all children in order (paths, circles, rects, lines)
+        for group in groups:
+            for element in group:
+                tag = element.tag.split('}')[-1] if '}' in element.tag else element.tag
 
-            # Parse this path
-            path_commands = parse_path_data(path_data, transform_x, transform_y)
-            commands.extend(path_commands)
+                if tag == 'path':
+                    path_data = element.get('d', '')
+                    if path_data:
+                        commands.extend(parse_path_data(path_data, transform_x, transform_y))
+
+                elif tag == 'circle':
+                    commands.extend(parse_circle(element, transform_x, transform_y))
+
+                elif tag == 'rect':
+                    commands.extend(parse_rect(element, transform_x, transform_y))
+
+                elif tag == 'line':
+                    commands.extend(parse_line(element, transform_x, transform_y))
+
+        if not commands:
+            print(f"Warning: No drawable elements found in {svg_path}", file=sys.stderr)
 
         return commands
 
     except Exception as e:
         print(f"Error parsing {svg_path}: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return []
+
+
+def parse_circle(element, tx, ty):
+    """Parse circle element and generate lamp circle command"""
+    try:
+        cx = float(element.get('cx', 0))
+        cy = float(element.get('cy', 0))
+        r = float(element.get('r', 0))
+
+        # Apply transform and round properly (don't truncate small values)
+        final_cx = int(round(cx + tx))
+        final_cy = int(round(cy + ty))
+        final_r = max(1, int(round(r)))  # Ensure minimum radius of 1 pixel
+
+        # Lamp circle command: pen circle ox oy r1 r2
+        # For a circle, r1 = r2 = radius
+        return [f"pen circle {final_cx} {final_cy} {final_r} {final_r}"]
+
+    except Exception as e:
+        print(f"Error parsing circle: {e}", file=sys.stderr)
+        return []
+
+
+def parse_rect(element, tx, ty):
+    """Parse rect element as 4 lines"""
+    try:
+        x = float(element.get('x', 0))
+        y = float(element.get('y', 0))
+        width = float(element.get('width', 0))
+        height = float(element.get('height', 0))
+
+        # Apply transform with rounding
+        x1 = int(round(x + tx))
+        y1 = int(round(y + ty))
+        x2 = int(round(x + width + tx))
+        y2 = int(round(y + height + ty))
+
+        return [
+            f"pen down {x1} {y1}",
+            f"pen move {x2} {y1}",
+            f"pen move {x2} {y2}",
+            f"pen move {x1} {y2}",
+            f"pen move {x1} {y1}",
+            "pen up"
+        ]
+
+    except Exception as e:
+        print(f"Error parsing rect: {e}", file=sys.stderr)
+        return []
+
+
+def parse_line(element, tx, ty):
+    """Parse line element"""
+    try:
+        x1 = float(element.get('x1', 0))
+        y1 = float(element.get('y1', 0))
+        x2 = float(element.get('x2', 0))
+        y2 = float(element.get('y2', 0))
+
+        # Apply transform with rounding
+        fx1 = int(round(x1 + tx))
+        fy1 = int(round(y1 + ty))
+        fx2 = int(round(x2 + tx))
+        fy2 = int(round(y2 + ty))
+
+        return [
+            f"pen down {fx1} {fy1}",
+            f"pen move {fx2} {fy2}",
+            "pen up"
+        ]
+
+    except Exception as e:
+        print(f"Error parsing line: {e}", file=sys.stderr)
         return []
 
 
@@ -124,9 +207,9 @@ def parse_path_data(path_data, tx, ty):
 
                 start_x, start_y = current_x, current_y
 
-                # Output with transform
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                # Output with transform (use round for better accuracy)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
 
                 # CORRECT SYNTAX: pen down X Y (to start at this position)
                 commands.append(f"pen down {final_x} {final_y}")
@@ -142,16 +225,16 @@ def parse_path_data(path_data, tx, ty):
                         current_x += coords[j]
                         current_y += coords[j+1]
 
-                    final_x = int(current_x + tx)
-                    final_y = int(current_y + ty)
+                    final_x = int(round(current_x + tx))
+                    final_y = int(round(current_y + ty))
                     commands.append(f"pen move {final_x} {final_y}")
                     j += 2
 
         elif cmd in 'Ll':  # Line
             if not pen_is_down:
                 # If pen not down, we need to start at current position
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -164,15 +247,15 @@ def parse_path_data(path_data, tx, ty):
                     current_x += coords[j]
                     current_y += coords[j+1]
 
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 2
 
         elif cmd in 'Hh':  # Horizontal line
             if not pen_is_down:
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -182,14 +265,14 @@ def parse_path_data(path_data, tx, ty):
                 else:
                     current_x += coord
 
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen move {final_x} {final_y}")
 
         elif cmd in 'Vv':  # Vertical line
             if not pen_is_down:
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -199,14 +282,14 @@ def parse_path_data(path_data, tx, ty):
                 else:
                     current_y += coord
 
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen move {final_x} {final_y}")
 
         elif cmd in 'Cc':  # Cubic Bezier
             if not pen_is_down:
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -219,15 +302,15 @@ def parse_path_data(path_data, tx, ty):
                     current_x += coords[j+4]
                     current_y += coords[j+5]
 
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 6
 
         elif cmd in 'Ss':  # Smooth cubic Bezier
             if not pen_is_down:
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen down {final_x} {final_y}")
                 pen_is_down = True
 
@@ -240,16 +323,16 @@ def parse_path_data(path_data, tx, ty):
                     current_x += coords[j+2]
                     current_y += coords[j+3]
 
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen move {final_x} {final_y}")
                 j += 4
 
         elif cmd in 'Zz':  # Close path
             if pen_is_down and (current_x != start_x or current_y != start_y):
                 current_x, current_y = start_x, start_y
-                final_x = int(current_x + tx)
-                final_y = int(current_y + ty)
+                final_x = int(round(current_x + tx))
+                final_y = int(round(current_y + ty))
                 commands.append(f"pen move {final_x} {final_y}")
 
     # Ensure pen is up at the end
@@ -292,9 +375,10 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
 // Build: make library (from src/ directory)
 //
 // LAMP COMMAND SYNTAX:
-//   pen down X Y  - Put pen down at (X,Y), start drawing
-//   pen move X Y  - Draw line from current position to (X,Y)
-//   pen up        - Lift pen, stop drawing
+//   pen down X Y        - Put pen down at (X,Y), start drawing
+//   pen move X Y        - Draw line from current position to (X,Y)
+//   pen up              - Lift pen, stop drawing
+//   pen circle X Y R1 R2 - Draw circle at (X,Y) with radii R1,R2
 
 #ifndef ELXNK_LIBRARY_H
 #define ELXNK_LIBRARY_H
