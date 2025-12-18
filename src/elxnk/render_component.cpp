@@ -2,15 +2,18 @@
 // Renders components by sending lamp commands to the pipe
 // This is the binary that actually USES the embedded library!
 //
-// COORDINATE SYSTEM:
-//   - Component library: Normalized coordinates (e.g., 0-10 for small components)
-//   - This binary: Transforms to ABSOLUTE screen pixels (1404x1872)
+// COORDINATE SYSTEM (PIXEL-SCALE VERSION):
+//   - Component library: Pixel coordinates at 10 px/mm scale (e.g., R is 22x78 pixels)
+//   - This binary: Applies scale + offset to get ABSOLUTE screen pixels (0-1404, 0-1872)
 //   - Lamp receives: Absolute pixel coordinates for reMarkable 2 display
 //
-//   Example: Component has "pen down 1 1"
-//            User calls: render_component("R", 500, 500, 2.0)
-//            Transform: (1 * 2.0) + 500 = 502
-//            Lamp gets: "pen down 502 502" (absolute screen pixel)
+//   Example: Component R has "pen down 11 16" (at 10px/mm, normalized to origin)
+//            User calls: render_component("R", 500, 500, 1.0)
+//            Transform: (11 * 1.0) + 500 = 511
+//            Lamp gets: "pen down 511 516" (absolute screen pixel)
+//
+//   For 1:1 scale, use scale=1.0 (component at original 10px/mm size)
+//   For 2x size, use scale=2.0 (R would be 44x156 pixels)
 
 #include <stdio.h>
 #include <stdlib.h>
