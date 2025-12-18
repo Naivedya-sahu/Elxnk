@@ -5,11 +5,34 @@
    height="10.3124mm"
    viewBox="0 0 5.3340002 10.3124"
    id="svg1561"
+   sodipodi:docname="VDC.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg"
    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
    xmlns:cc="http://creativecommons.org/ns#"
    xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="20.70505"
+     inkscape:cx="10.070007"
+     inkscape:cy="19.488"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1561" />
   <defs
      id="defs1561" />
   <title
@@ -25,61 +48,46 @@
       </cc:Work>
     </rdf:RDF>
   </metadata>
-  <g
-     id="VDC"
-     transform="translate(-120.523,-120.5738)">
-    <path
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
-       d="m 121.92,125.476 h 2.54"
-       id="path874" />
-    <path
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
-       d="M 122.428,125.984 H 121.92"
-       id="path875" />
-    <path
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
-       d="m 123.444,125.984 h -0.508"
-       id="path876" />
-    <path
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
-       d="m 124.46,125.984 h -0.508"
-       id="path877" />
-    <circle
-       cx="123.19"
-       cy="125.73"
-       r="2.54"
-       id="circle877"
-       style="fill:none;stroke:#000000;stroke-width:0.254;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <text
-       x="123.19"
-       y="124.46"
-       textLength="1.7756"
-       font-size="1.6933px"
-       lengthAdjust="spacingAndGlyphs"
-       text-anchor="middle"
-       opacity="0"
-       stroke-opacity="0"
-       id="text878"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round">+</text>
-    <path
-       d="m 122.7061,123.9207 h 0.9677"
-       id="path878"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 123.1899,124.4045 v -0.9676"
-       id="path879"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 123.19,123.19 v -2.54"
-       id="path880"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 123.19,128.27 v 2.54"
-       id="path881"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 122.7061,127.2207 h 0.9677"
-       id="path1571"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-  </g>
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+     d="m 1.397,4.9022 h 2.54"
+     id="path874" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+     d="M 1.905,5.4102 H 1.397"
+     id="path875" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+     d="M 2.921,5.4102 H 2.413"
+     id="path876" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+     d="M 3.937,5.4102 H 3.429"
+     id="path877" />
+  <circle
+     cx="2.6670024"
+     cy="5.1562033"
+     r="2.54"
+     id="circle877"
+     style="fill:none;stroke:#000000;stroke-width:0.254;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="M 2.1831,3.3469 H 3.1508"
+     id="path878"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="M 2.6669,3.8307 V 2.8631"
+     id="path879"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="m 2.667,2.6162 v -2.54"
+     id="path880"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="m 2.667,7.6962 v 2.54"
+     id="path881"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="M 2.1831,6.6469 H 3.1508"
+     id="path1571"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
 </svg>

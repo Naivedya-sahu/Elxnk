@@ -5,11 +5,34 @@
    height="10.3124mm"
    viewBox="0 0 5.3340002 10.3124"
    id="svg1561"
+   sodipodi:docname="VAC.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg"
    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
    xmlns:cc="http://creativecommons.org/ns#"
    xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="20.70505"
+     inkscape:cx="10.070007"
+     inkscape:cy="19.488"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1561" />
   <defs
      id="defs1561" />
   <title
@@ -25,53 +48,38 @@
       </cc:Work>
     </rdf:RDF>
   </metadata>
-  <g
-     id="VAC"
-     transform="translate(-120.523,-106.6038)">
-    <path
-       d="m 123.19,111.76 a 0.635,0.635 0 0 0 -1.27,0"
-       id="path863"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 123.19,111.7599 a 0.635,0.635 0 0 0 1.27,0"
-       id="path864"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <circle
-       cx="123.19"
-       cy="111.76"
-       r="2.54"
-       id="circle864"
-       style="fill:none;stroke:#000000;stroke-width:0.254;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <text
-       x="123.19"
-       y="110.49"
-       textLength="1.7756"
-       font-size="1.6933px"
-       lengthAdjust="spacingAndGlyphs"
-       text-anchor="middle"
-       opacity="0"
-       stroke-opacity="0"
-       id="text865"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round">+</text>
-    <path
-       d="m 122.7061,109.9507 h 0.9677"
-       id="path865"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 123.1899,110.4345 v -0.9676"
-       id="path866"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 123.19,109.22 v -2.54"
-       id="path867"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 123.19,114.3 v 2.54"
-       id="path868"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-    <path
-       d="m 122.7061,113.2507 h 0.9677"
-       id="path1572"
-       style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
-  </g>
+  <path
+     d="m 2.667,5.1562 a 0.635,0.635 0 0 0 -1.27,0"
+     id="path863"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="m 2.667,5.1561 a 0.635,0.635 0 0 0 1.27,0"
+     id="path864"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <circle
+     cx="2.6670024"
+     cy="5.1562023"
+     r="2.54"
+     id="circle864"
+     style="fill:none;stroke:#000000;stroke-width:0.254;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="M 2.1831,3.3469 H 3.1508"
+     id="path865"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="M 2.6669,3.8307 V 2.8631"
+     id="path866"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="m 2.667,2.6162 v -2.54"
+     id="path867"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="m 2.667,7.6962 v 2.54"
+     id="path868"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
+  <path
+     d="M 2.1831,6.6469 H 3.1508"
+     id="path1572"
+     style="fill:none;stroke:#000000;stroke-width:0.1524;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1" />
 </svg>
