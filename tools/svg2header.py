@@ -1,438 +1,54 @@
 #!/usr/bin/env python3
 """
-SVG to Lamp Command Converter - PIXEL-SCALE VERSION
-Converts SVG files to embedded C header with lamp drawing commands
-Pre-processes all components and fonts at build time
+SVG to C Header Generator
+Generates component library header file from SVG assets
+Calls svg_to_lamp_final.py for SVG parsing
 
-CRITICAL: Coordinates are stored in PIXELS at proper scale for screen placement.
-- reMarkable 2: 1404x1872 pixels, ~226 DPI = ~8.9 pixels/mm
-- Using 10 pixels/mm for clean scaling
-- Components stored at actual pixel sizes (e.g., R resistor: 22x78 pixels)
-- render_component() should apply OFFSET only, NO SCALING
-
-LAMP COMMAND SYNTAX:
-  pen down X Y  - Put pen down at position (X,Y) and set current position
-  pen move X Y  - Draw line from current position to (X,Y)
-  pen up        - Lift pen
-  pen circle X Y R1 R2 - Draw circle at (X,Y) with radii R1,R2
+This script orchestrates the build process:
+1. Iterates through component and font SVG files
+2. Calls svg_to_lamp_final.py to convert each SVG to lamp commands
+3. Generates C header file with embedded command arrays
 """
 
-import re
 import sys
 import os
+import subprocess
 from pathlib import Path
-from typing import List
-import xml.etree.ElementTree as ET
-
-# Scale factor: mm to pixels (reMarkable 2 DPI)
-# reMarkable 2: ~8.9 pixels/mm actual, using 10 for clean math
-PIXELS_PER_MM = 10.0
 
 
-def parse_svg_to_lamp_commands(svg_path):
+def parse_svg_to_lamp_commands(svg_file):
     """
-    Parse SVG file and generate lamp commands with coordinates in PIXELS.
-
-    SVG coordinates (in mm) are scaled to screen pixels using PIXELS_PER_MM.
-    The transform is applied to normalize coordinates relative to viewBox origin.
-
-    Works with both:
-    - Components: paths inside <g transform="..."> elements
-    - Fonts: paths directly under root <svg> element
+    Parse SVG file by calling svg_to_lamp_final.py
+    Returns list of command strings
     """
     try:
-        tree = ET.parse(svg_path)
-        root = tree.getroot()
+        # Get path to svg_to_lamp_final.py (in same directory as this script)
+        script_dir = Path(__file__).parent
+        converter_script = script_dir / 'svg_to_lamp_final.py'
 
-        # Handle namespaces
-        ns = {'svg': 'http://www.w3.org/2000/svg'}
+        if not converter_script.exists():
+            print(f"Error: svg_to_lamp_final.py not found at {converter_script}", file=sys.stderr)
+            return []
 
-        # Get transform from group if exists (components typically have this)
-        transform_x, transform_y = 0, 0
-        groups = root.findall('.//svg:g', ns) or root.findall('.//g')
-        if groups:
-            transform = groups[0].get('transform', '')
-            match = re.search(r'translate\(([^,]+),([^)]+)\)', transform)
-            if match:
-                transform_x = float(match.group(1))
-                transform_y = float(match.group(2))
+        # Call svg_to_lamp_final.py as subprocess
+        result = subprocess.run(
+            ['python3', str(converter_script), svg_file],
+            capture_output=True,
+            text=True,
+            check=True
+        )
 
-        commands = []
-
-        # Find ALL paths/circles/rects/lines in the document (whether in groups or not)
-        # This handles both components (with <g>) and fonts (paths directly under root)
-        paths = root.findall('.//svg:path', ns) or root.findall('.//path')
-        circles = root.findall('.//svg:circle', ns) or root.findall('.//circle')
-        rects = root.findall('.//svg:rect', ns) or root.findall('.//rect')
-        lines = root.findall('.//svg:line', ns) or root.findall('.//line')
-
-        # Process all elements (they appear in document order)
-        for path in paths:
-            path_data = path.get('d', '')
-            if path_data:
-                commands.extend(parse_path_data(path_data, transform_x, transform_y))
-
-        for circle in circles:
-            commands.extend(parse_circle(circle, transform_x, transform_y))
-
-        for rect in rects:
-            commands.extend(parse_rect(rect, transform_x, transform_y))
-
-        for line in lines:
-            commands.extend(parse_line(line, transform_x, transform_y))
-
-        if not commands:
-            print(f"Warning: No drawable elements found in {svg_path}", file=sys.stderr)
-
+        # Parse output commands (one per line)
+        commands = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
         return commands
 
-    except Exception as e:
-        print(f"Error parsing {svg_path}: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
+    except subprocess.CalledProcessError as e:
+        print(f"Error converting {svg_file}: {e}", file=sys.stderr)
+        print(f"stderr: {e.stderr}", file=sys.stderr)
         return []
-
-
-def parse_circle(element, tx, ty):
-    """Parse circle element and generate lamp circle command with pixel coordinates"""
-    try:
-        cx = float(element.get('cx', 0))
-        cy = float(element.get('cy', 0))
-        r = float(element.get('r', 0))
-
-        # Apply transform (mm space) then convert to pixels
-        cx_mm = cx + tx
-        cy_mm = cy + ty
-        r_mm = r
-
-        # Convert to pixels
-        final_cx = int(round(cx_mm * PIXELS_PER_MM))
-        final_cy = int(round(cy_mm * PIXELS_PER_MM))
-        final_r = max(1, int(round(r_mm * PIXELS_PER_MM)))  # Minimum 1 pixel
-
-        # Lamp circle command: pen circle ox oy r1 r2
-        return [f"pen circle {final_cx} {final_cy} {final_r} {final_r}"]
-
     except Exception as e:
-        print(f"Error parsing circle: {e}", file=sys.stderr)
+        print(f"Error processing {svg_file}: {e}", file=sys.stderr)
         return []
-
-
-def parse_rect(element, tx, ty):
-    """Parse rect element as 4 lines with pixel coordinates"""
-    try:
-        x = float(element.get('x', 0))
-        y = float(element.get('y', 0))
-        width = float(element.get('width', 0))
-        height = float(element.get('height', 0))
-
-        # Apply transform (mm space) then convert to pixels
-        x1 = int(round((x + tx) * PIXELS_PER_MM))
-        y1 = int(round((y + ty) * PIXELS_PER_MM))
-        x2 = int(round((x + width + tx) * PIXELS_PER_MM))
-        y2 = int(round((y + height + ty) * PIXELS_PER_MM))
-
-        return [
-            f"pen down {x1} {y1}",
-            f"pen move {x2} {y1}",
-            f"pen move {x2} {y2}",
-            f"pen move {x1} {y2}",
-            f"pen move {x1} {y1}",
-            "pen up"
-        ]
-
-    except Exception as e:
-        print(f"Error parsing rect: {e}", file=sys.stderr)
-        return []
-
-
-def parse_line(element, tx, ty):
-    """Parse line element with pixel coordinates"""
-    try:
-        x1 = float(element.get('x1', 0))
-        y1 = float(element.get('y1', 0))
-        x2 = float(element.get('x2', 0))
-        y2 = float(element.get('y2', 0))
-
-        # Apply transform (mm space) then convert to pixels
-        fx1 = int(round((x1 + tx) * PIXELS_PER_MM))
-        fy1 = int(round((y1 + ty) * PIXELS_PER_MM))
-        fx2 = int(round((x2 + tx) * PIXELS_PER_MM))
-        fy2 = int(round((y2 + ty) * PIXELS_PER_MM))
-
-        return [
-            f"pen down {fx1} {fy1}",
-            f"pen move {fx2} {fy2}",
-            "pen up"
-        ]
-
-    except Exception as e:
-        print(f"Error parsing line: {e}", file=sys.stderr)
-        return []
-
-
-def cubic_bezier_interpolate(p0, p1, p2, p3, steps=10):
-    """
-    Interpolate a cubic bezier curve into line segments.
-
-    p0: (x, y) start point
-    p1: (x, y) first control point
-    p2: (x, y) second control point
-    p3: (x, y) endpoint
-    steps: number of line segments to create (default 10 for smooth curves)
-
-    Returns list of (x, y) points along the curve
-    """
-    points = []
-    for i in range(1, steps + 1):
-        t = i / steps
-        # Cubic bezier formula: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
-        one_minus_t = 1 - t
-
-        x = (one_minus_t ** 3 * p0[0] +
-             3 * one_minus_t ** 2 * t * p1[0] +
-             3 * one_minus_t * t ** 2 * p2[0] +
-             t ** 3 * p3[0])
-
-        y = (one_minus_t ** 3 * p0[1] +
-             3 * one_minus_t ** 2 * t * p1[1] +
-             3 * one_minus_t * t ** 2 * p2[1] +
-             t ** 3 * p3[1])
-
-        points.append((x, y))
-
-    return points
-
-
-def parse_path_data(path_data, tx, ty):
-    """
-    Parse SVG path data into lamp commands with PIXEL coordinates.
-
-    CRITICAL:
-    - SVG coordinates are in mm
-    - Apply transform (still in mm)
-    - Convert to pixels using PIXELS_PER_MM
-    - Cubic bezier curves are INTERPOLATED into multiple line segments for smoothness
-    - lamp syntax:
-      - pen down X Y (to start drawing at X,Y)
-      - pen move X Y (to draw line to X,Y)
-      - pen up (to stop drawing)
-    """
-    commands = []
-
-    # Tokenize
-    tokens = re.findall(r'[MmLlHhVvCcSsQqTtAaZz]|[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', path_data)
-
-    i = 0
-    current_x, current_y = 0.0, 0.0  # in mm
-    start_x, start_y = 0.0, 0.0  # in mm
-    pen_is_down = False
-
-    while i < len(tokens):
-        if i >= len(tokens):
-            break
-
-        cmd = tokens[i]
-
-        if not cmd[0].isalpha():
-            i += 1
-            continue
-
-        # Collect coordinates
-        coords = []
-        i += 1
-        while i < len(tokens) and not tokens[i][0].isalpha():
-            try:
-                coords.append(float(tokens[i]))
-            except ValueError:
-                break
-            i += 1
-
-        # Process command
-        if cmd in 'Mm':  # Move
-            if len(coords) >= 2:
-                # Lift pen if down
-                if pen_is_down:
-                    commands.append("pen up")
-                    pen_is_down = False
-
-                # Update position (in mm space)
-                if cmd == 'M':  # Absolute
-                    current_x = coords[0]
-                    current_y = coords[1]
-                else:  # Relative
-                    current_x += coords[0]
-                    current_y += coords[1]
-
-                start_x, start_y = current_x, current_y
-
-                # Apply transform (mm) then convert to pixels
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-
-                # CORRECT SYNTAX: pen down X Y (to start at this position)
-                commands.append(f"pen down {final_x} {final_y}")
-                pen_is_down = True
-
-                # Process additional coordinates as implicit lineto
-                j = 2
-                while j + 1 < len(coords):
-                    if cmd == 'M':
-                        current_x = coords[j]
-                        current_y = coords[j+1]
-                    else:
-                        current_x += coords[j]
-                        current_y += coords[j+1]
-
-                    final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                    final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                    commands.append(f"pen move {final_x} {final_y}")
-                    j += 2
-
-        elif cmd in 'Ll':  # Line
-            if not pen_is_down:
-                # If pen not down, we need to start at current position
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen down {final_x} {final_y}")
-                pen_is_down = True
-
-            j = 0
-            while j + 1 < len(coords):
-                if cmd == 'L':  # Absolute
-                    current_x = coords[j]
-                    current_y = coords[j+1]
-                else:  # Relative
-                    current_x += coords[j]
-                    current_y += coords[j+1]
-
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen move {final_x} {final_y}")
-                j += 2
-
-        elif cmd in 'Hh':  # Horizontal line
-            if not pen_is_down:
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen down {final_x} {final_y}")
-                pen_is_down = True
-
-            for coord in coords:
-                if cmd == 'H':
-                    current_x = coord
-                else:
-                    current_x += coord
-
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen move {final_x} {final_y}")
-
-        elif cmd in 'Vv':  # Vertical line
-            if not pen_is_down:
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen down {final_x} {final_y}")
-                pen_is_down = True
-
-            for coord in coords:
-                if cmd == 'V':
-                    current_y = coord
-                else:
-                    current_y += coord
-
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen move {final_x} {final_y}")
-
-        elif cmd in 'Cc':  # Cubic Bezier - INTERPOLATE for smooth curves
-            if not pen_is_down:
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen down {final_x} {final_y}")
-                pen_is_down = True
-
-            j = 0
-            while j + 5 < len(coords):
-                # Get control points and endpoint
-                if cmd == 'C':  # Absolute
-                    x1, y1 = coords[j], coords[j+1]
-                    x2, y2 = coords[j+2], coords[j+3]
-                    x3, y3 = coords[j+4], coords[j+5]
-                else:  # Relative
-                    x1, y1 = current_x + coords[j], current_y + coords[j+1]
-                    x2, y2 = current_x + coords[j+2], current_y + coords[j+3]
-                    x3, y3 = current_x + coords[j+4], current_y + coords[j+5]
-
-                # Interpolate curve into line segments
-                p0 = (current_x, current_y)
-                p1 = (x1, y1)
-                p2 = (x2, y2)
-                p3 = (x3, y3)
-
-                curve_points = cubic_bezier_interpolate(p0, p1, p2, p3, steps=10)
-
-                # Output interpolated points as line segments
-                for point_x, point_y in curve_points:
-                    final_x = int(round((point_x + tx) * PIXELS_PER_MM))
-                    final_y = int(round((point_y + ty) * PIXELS_PER_MM))
-                    commands.append(f"pen move {final_x} {final_y}")
-
-                # Update current position to endpoint
-                current_x = x3
-                current_y = y3
-                j += 6
-
-        elif cmd in 'Ss':  # Smooth cubic Bezier - INTERPOLATE
-            if not pen_is_down:
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen down {final_x} {final_y}")
-                pen_is_down = True
-
-            j = 0
-            while j + 3 < len(coords):
-                # S command has control point 2 and endpoint
-                # First control point is reflection of previous (we approximate)
-                if cmd == 'S':  # Absolute
-                    x2, y2 = coords[j], coords[j+1]
-                    x3, y3 = coords[j+2], coords[j+3]
-                else:  # Relative
-                    x2, y2 = current_x + coords[j], current_y + coords[j+1]
-                    x3, y3 = current_x + coords[j+2], current_y + coords[j+3]
-
-                # Approximate first control point (simplified)
-                x1, y1 = current_x, current_y
-
-                # Interpolate curve
-                p0 = (current_x, current_y)
-                p1 = (x1, y1)
-                p2 = (x2, y2)
-                p3 = (x3, y3)
-
-                curve_points = cubic_bezier_interpolate(p0, p1, p2, p3, steps=10)
-
-                for point_x, point_y in curve_points:
-                    final_x = int(round((point_x + tx) * PIXELS_PER_MM))
-                    final_y = int(round((point_y + ty) * PIXELS_PER_MM))
-                    commands.append(f"pen move {final_x} {final_y}")
-
-                current_x = x3
-                current_y = y3
-                j += 4
-
-        elif cmd in 'Zz':  # Close path
-            if pen_is_down and (current_x != start_x or current_y != start_y):
-                current_x, current_y = start_x, start_y
-                final_x = int(round((current_x + tx) * PIXELS_PER_MM))
-                final_y = int(round((current_y + ty) * PIXELS_PER_MM))
-                commands.append(f"pen move {final_x} {final_y}")
-
-    # Ensure pen is up at the end
-    if pen_is_down:
-        commands.append("pen up")
-
-    return commands
 
 
 def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
@@ -463,20 +79,24 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
 
     # Generate header file
     with open(output_file, 'w') as f:
-        f.write("""// Auto-generated component and font library - PIXEL SCALE VERSION
-// Generated from SVG assets - DO NOT EDIT MANUALLY
+        f.write("""// Auto-generated component and font library
+// Generated from SVG assets using svg_to_lamp_final.py
 // Build: make library (from src/ directory)
+// DO NOT EDIT MANUALLY - regenerate with svg2header.py
 //
 // COORDINATES: Stored in PIXELS at 10 pixels/mm scale
 // - reMarkable 2: 1404x1872 pixels
-// - Example: R resistor is 22x78 pixels (2.2mm x 7.8mm actual size)
-// - render_component() should apply POSITION OFFSET ONLY, NO SCALING
+// - Components scaled to actual pixel sizes
+// - render_component() applies POSITION OFFSET only
 //
-// LAMP COMMAND SYNTAX:
-//   pen down X Y        - Put pen down at (X,Y), start drawing
-//   pen move X Y        - Draw line from current position to (X,Y)
-//   pen up              - Lift pen, stop drawing
-//   pen circle X Y R1 R2 - Draw circle at (X,Y) with radii R1,R2
+// LAMP GEOMETRY COMMANDS (from rmkit):
+//   pen down X Y              - Start drawing at (X,Y)
+//   pen move X Y              - Draw line to (X,Y)
+//   pen up                    - Lift pen
+//   pen line X1 Y1 X2 Y2      - Draw line
+//   pen circle CX CY R1 R2    - Draw circle/ellipse
+//   pen rectangle X1 Y1 X2 Y2 - Draw rectangle
+//   pen arc CX CY R1 R2 A1 A2 - Draw arc
 
 #ifndef ELXNK_LIBRARY_H
 #define ELXNK_LIBRARY_H
@@ -508,75 +128,103 @@ struct FontGlyph {
 
 """)
 
-        # Write component command arrays
-        for name, commands in components.items():
+        # Write component arrays
+        for name, cmds in sorted(components.items()):
             f.write(f"// Component: {name}\n")
             f.write(f"static const LampCommand {name}_commands[] = {{\n")
-            for cmd in commands:
-                f.write(f'    {{"{cmd}"}},\n')
+            for cmd in cmds:
+                # Escape quotes in commands
+                escaped_cmd = cmd.replace('"', '\\"')
+                f.write(f'    {{"{escaped_cmd}"}},\n')
             f.write("};\n\n")
 
-        # Write font command arrays
-        for char, commands in fonts.items():
-            safe_name = char if char.isalnum() else f"_{ord(char)}"
+        # Write font glyph arrays
+        for char, cmds in sorted(fonts.items()):
+            safe_name = char.replace('-', '_').replace('+', 'plus')
             f.write(f"// Font: {char}\n")
             f.write(f"static const LampCommand font_{safe_name}_commands[] = {{\n")
-            for cmd in commands:
-                f.write(f'    {{"{cmd}"}},\n')
+            for cmd in cmds:
+                escaped_cmd = cmd.replace('"', '\\"')
+                f.write(f'    {{"{escaped_cmd}"}},\n')
             f.write("};\n\n")
 
-        # Write component table
-        f.write("// Component lookup table\n")
+        # Write component registry
+        f.write("// Component registry\n")
         f.write("static const Component COMPONENTS[] = {\n")
-        for name, commands in components.items():
-            f.write(f'    {{"{name}", {name}_commands, {len(commands)}}},\n')
+        for name, cmds in sorted(components.items()):
+            count = len(cmds)
+            f.write(f'    {{"{name}", {name}_commands, {count}}},\n')
         f.write("};\n\n")
-        f.write(f"static const int COMPONENT_COUNT = {len(components)};\n\n")
 
-        # Write font table
-        f.write("// Font glyph lookup table\n")
+        # Write font registry
+        f.write("// Font glyph registry\n")
         f.write("static const FontGlyph FONT_GLYPHS[] = {\n")
-        for char, commands in fonts.items():
-            safe_name = char if char.isalnum() else f"_{ord(char)}"
-            f.write(f"    {{'{char}', font_{safe_name}_commands, {len(commands)}}},\n")
+        for char, cmds in sorted(fonts.items()):
+            safe_name = char.replace('-', '_').replace('+', 'plus')
+            count = len(cmds)
+            # Map font name to character
+            if len(char) == 1:
+                f.write(f"    {{'{char}', font_{safe_name}_commands, {count}}},\n")
+            else:
+                # For multi-character names (like A-F), use first char
+                first_char = char[0] if char else '?'
+                f.write(f"    {{'{first_char}', font_{safe_name}_commands, {count}}},\n")
         f.write("};\n\n")
-        f.write(f"static const int FONT_GLYPH_COUNT = {len(fonts)};\n\n")
 
-        # Write helper functions
-        f.write("""// Helper functions
-inline const Component* find_component(const char* name) {
-    for (int i = 0; i < COMPONENT_COUNT; i++) {
-        if (strcmp(COMPONENTS[i].name, name) == 0) {
-            return &COMPONENTS[i];
+        # Write lookup functions
+        f.write("""// Lookup functions
+const Component* find_component(const std::string& name) {
+    for (const auto& comp : COMPONENTS) {
+        if (comp.name == name) {
+            return &comp;
         }
     }
     return nullptr;
 }
 
-inline const FontGlyph* find_glyph(char c) {
-    for (int i = 0; i < FONT_GLYPH_COUNT; i++) {
-        if (FONT_GLYPHS[i].character == c) {
-            return &FONT_GLYPHS[i];
+const FontGlyph* find_glyph(char c) {
+    for (const auto& glyph : FONT_GLYPHS) {
+        if (glyph.character == c) {
+            return &glyph;
         }
     }
     return nullptr;
 }
 
-} // namespace elxnk
+// Component count
+inline int get_component_count() {
+    return sizeof(COMPONENTS) / sizeof(Component);
+}
 
-#endif // ELXNK_LIBRARY_H
+// Font glyph count
+inline int get_glyph_count() {
+    return sizeof(FONT_GLYPHS) / sizeof(FontGlyph);
+}
+
+}  // namespace elxnk
+
+#endif  // ELXNK_LIBRARY_H
 """)
 
-    print(f"\nGenerated header: {output_file}")
-    print(f"  Components: {len(components)}")
-    print(f"  Fonts: {len(fonts)}")
-    print(f"  Total commands: {sum(len(c) for c in components.values()) + sum(len(f) for f in fonts.values())}")
+    total_components = len(components)
+    total_fonts = len(fonts)
+    total_commands = sum(len(cmds) for cmds in components.values()) + sum(len(cmds) for cmds in fonts.values())
+
+    print(f"\nLibrary generated successfully:")
+    print(f"  Components: {total_components}")
+    print(f"  Font glyphs: {total_fonts}")
+    print(f"  Total commands: {total_commands}")
+    print(f"  Output: {output_file}")
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print(f"Usage: {sys.argv[0]} <components_dir> <fonts_dir> <output.h>")
-        print(f"Example: {sys.argv[0]} assets/components assets/font src/elxnk/component_library.h")
+    if len(sys.argv) != 4:
+        print(f"Usage: {sys.argv[0]} <components_dir> <fonts_dir> <output_file>", file=sys.stderr)
+        print(f"Example: {sys.argv[0]} ../assets/components ../assets/font elxnk/component_library.h", file=sys.stderr)
         sys.exit(1)
 
-    generate_header_file(sys.argv[1], sys.argv[2], sys.argv[3])
+    components_dir = sys.argv[1]
+    fonts_dir = sys.argv[2]
+    output_file = sys.argv[3]
+
+    generate_header_file(components_dir, fonts_dir, output_file)
