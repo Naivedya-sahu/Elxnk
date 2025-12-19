@@ -6,12 +6,18 @@ SVG to LAMP Complete Converter - Final Version
 Addresses all previous parser issues:
 - ✓ Handles negative coordinates correctly
 - ✓ Parses ALL path commands (M, L, H, V, C, S, Q, T, A, Z)
-- ✓ Supports circles, rectangles, lines
+- ✓ Supports circles (converted to polygons), rectangles, lines
 - ✓ Uses svgpathtools for reliable curve parsing
 - ✓ Minimal commands via intelligent simplification
 - ✓ Pixel-based coordinates (10 px/mm for reMarkable 2)
 - ✓ Auto-centering and scaling
 - ✓ Header file generation for embedded C compilation
+
+IMPORTANT: Elxnk lamp only supports basic pen commands:
+  - pen down X Y
+  - pen move X Y  
+  - pen up
+Circles are automatically converted to polygon approximations.
 
 Usage:
   Single file test: python3 svg_to_lamp_final.py file.svg [scale] [offset_x] [offset_y]
@@ -21,7 +27,7 @@ Usage:
 import sys
 import re
 import math
-from pathlib import Path
+from pathlib import Path as FilePath
 import xml.etree.ElementTree as ET
 from typing import List, Tuple, Dict
 
@@ -115,8 +121,14 @@ class SVGToLamp:
             
             # Skip hidden or pin elements
             elem_id = elem.get('id', '')
-            if 'pin' in elem_id.lower() or elem.get('opacity') == '0':
-                continue
+            opacity = elem.get('opacity', '1')
+            try:
+                if 'pin' in elem_id.lower() or float(opacity) == 0:
+                    continue
+            except (ValueError, TypeError):
+                # If opacity can't be parsed, assume visible
+                if 'pin' in elem_id.lower():
+                    continue
             
             try:
                 if tag == 'path':
@@ -180,8 +192,14 @@ class SVGToLamp:
         elem_id = elem.get('id', '')
         
         # Skip hidden or pin elements
-        if 'pin' in elem_id.lower() or elem.get('opacity') == '0':
-            return commands
+        opacity = elem.get('opacity', '1')
+        try:
+            if 'pin' in elem_id.lower() or float(opacity) == 0:
+                return commands
+        except (ValueError, TypeError):
+            # If opacity can't be parsed, assume visible
+            if 'pin' in elem_id.lower():
+                return commands
         
         # Parse based on element type
         if tag == 'path':
@@ -222,9 +240,10 @@ class SVGToLamp:
             sy = float(match.group(2)) if match.group(2) else sx
             result['scale'] = (sx, sy)
         
-        # Parse rotate
-        match = re.search(r'rotate\s*\(\s*([^)]+)\s*\)', transform_str)
+        # Parse rotate (can be: rotate(angle) or rotate(angle, cx, cy))
+        match = re.search(r'rotate\s*\(\s*([^,\)]+)(?:\s*,\s*[^,]+\s*,\s*[^)]+)?\s*\)', transform_str)
         if match:
+            # Only extract the angle, ignore center point for now
             result['rotate'] = float(match.group(1))
         
         return result
@@ -386,21 +405,41 @@ class SVGToLamp:
         return douglas_peucker(points, tolerance)
     
     def _parse_circle(self, elem, transform) -> List[str]:
-        """Parse circle element"""
+        """Parse circle element - convert to polygon since lamp doesn't support pen circle"""
         try:
             cx = float(elem.get('cx', 0))
             cy = float(elem.get('cy', 0))
             r = float(elem.get('r', 0))
             
-            # Apply transform
+            # Apply transform to center
             cx, cy = self._apply_transform(cx, cy, transform)
             
-            # Transform to screen coordinates
-            px, py = self._transform_point(cx, cy)
-            pr = int(round(r * self.scale))
-            pr = max(1, pr)  # Minimum 1 pixel
+            # Apply scale to radius (use average of sx and sy)
+            if transform:
+                sx, sy = transform['scale']
+                r *= (sx + sy) / 2
             
-            return [f"pen circle {px} {py} {pr} {pr}"]
+            # Convert circle to polygon approximation
+            # Use adaptive segment count based on radius
+            segments = max(12, min(36, int(r * self.scale / 5)))
+            
+            points = []
+            for i in range(segments + 1):
+                angle = (2 * math.pi * i) / segments
+                x = cx + r * math.cos(angle)
+                y = cy + r * math.sin(angle)
+                px, py = self._transform_point(x, y)
+                points.append((px, py))
+            
+            # Generate pen commands for polygon
+            commands = []
+            if points:
+                commands.append(f"pen down {points[0][0]} {points[0][1]}")
+                for px, py in points[1:]:
+                    commands.append(f"pen move {px} {py}")
+                commands.append("pen up")
+            
+            return commands
         
         except Exception as e:
             print(f"Warning: Circle parsing failed: {e}", file=sys.stderr)
@@ -590,7 +629,7 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
     fonts = {}
     
     # Parse components
-    comp_path = Path(components_dir)
+    comp_path = FilePath(components_dir)
     if comp_path.exists():
         for svg_file in sorted(comp_path.glob('*.svg')):
             if svg_file.name == 'Library.svg':
@@ -608,7 +647,7 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
                 print(f"✗ Component {name}: {e}")
     
     # Parse fonts
-    font_path = Path(fonts_dir)
+    font_path = FilePath(fonts_dir)
     if font_path.exists():
         for svg_file in sorted(font_path.glob('*.svg')):
             char = svg_file.stem
@@ -632,11 +671,13 @@ def generate_header_file(components_dir: str, fonts_dir: str, output_file: str):
 // - reMarkable 2: {SCREEN_WIDTH}x{SCREEN_HEIGHT} pixels
 // - render_component() applies position offset
 //
-// LAMP COMMAND SYNTAX:
+// LAMP COMMAND SYNTAX (Elxnk minimal lamp):
 //   pen down X Y        - Start drawing at (X,Y)
 //   pen move X Y        - Draw line to (X,Y)
 //   pen up              - Stop drawing
-//   pen circle X Y R1 R2 - Draw circle at (X,Y) with radii R1,R2
+//
+// NOTE: Circles are converted to polygon approximations
+// The Elxnk lamp binary does NOT support: circle, rectangle, arc, bezier commands
 
 #ifndef ELXNK_LIBRARY_H
 #define ELXNK_LIBRARY_H
@@ -760,7 +801,7 @@ def main():
     offset_x = int(sys.argv[3]) if len(sys.argv) > 3 else None
     offset_y = int(sys.argv[4]) if len(sys.argv) > 4 else None
     
-    if not Path(svg_file).exists():
+    if not FilePath(svg_file).exists():
         print(f"Error: File not found: {svg_file}")
         sys.exit(1)
     
