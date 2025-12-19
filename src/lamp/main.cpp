@@ -161,6 +161,217 @@ std::vector<input_event> eraser_up() {
     return ev;
 }
 
+// Geometry functions from rmkit (iago/lamp)
+// These functions enable drawing complex shapes
+
+void trace_arc(int ox, int oy, int r1, int r2, int a1, int a2, int step = 1) {
+    // Draw arc by tracing points along the curve
+    for (int i = a1; i < a2 + 10; i += step) {
+        double angle_rad = (double)i / denom;
+        int rx = cos(angle_rad) * r1 + ox;
+        int ry = sin(angle_rad) * r2 + oy;
+        write_events(pen_fd, pen_move(pen_x, pen_y, rx, ry, move_pts), 2);
+        pen_x = rx;
+        pen_y = ry;
+    }
+}
+
+void pen_draw_circle(int ox, int oy, int r1, int r2) {
+    // Draw circle using arc tracing
+    int start_x = ox + r1;
+    int start_y = oy;
+
+    write_events(pen_fd, pen_down(start_x, start_y));
+    pen_x = start_x;
+    pen_y = start_y;
+
+    int old_move_pts = move_pts;
+    move_pts = 10;
+    trace_arc(ox, oy, r1, r2, 0, 360, 1);
+    move_pts = old_move_pts;
+
+    write_events(pen_fd, pen_up());
+}
+
+void pen_draw_arc(int ox, int oy, int r1, int r2, int a1 = 0, int a2 = 360) {
+    // Normalize angles
+    while (a2 < a1) {
+        a2 += 360;
+    }
+
+    // Calculate starting point
+    double angle_rad = (double)a1 / denom;
+    int pointx = cos(angle_rad) * r1 + ox;
+    int pointy = sin(angle_rad) * r2 + oy;
+
+    write_events(pen_fd, pen_down(pointx, pointy));
+    pen_x = pointx;
+    pen_y = pointy;
+
+    int old_move_pts = move_pts;
+    move_pts = 10;
+    trace_arc(ox, oy, r1, r2, a1, a2, 2);
+    move_pts = old_move_pts;
+
+    write_events(pen_fd, pen_up());
+}
+
+void pen_draw_line(int x1, int y1, int x2, int y2) {
+    // Simple line drawing
+    if (x2 == -1) {
+        x2 = pen_x;
+        y2 = pen_y;
+    }
+
+    write_events(pen_fd, pen_down(x1, y1));
+    pen_x = x1;
+    pen_y = y1;
+
+    write_events(pen_fd, pen_move(pen_x, pen_y, x2, y2, move_pts));
+    pen_x = x2;
+    pen_y = y2;
+
+    write_events(pen_fd, pen_up());
+}
+
+void pen_draw_rectangle(int x1, int y1, int x2, int y2) {
+    // Draw rectangle as 4 connected lines
+    if (x2 == -1) {
+        x2 = pen_x;
+        y2 = pen_y;
+    }
+
+    write_events(pen_fd, pen_down(x1, y1));
+    pen_x = x1;
+    pen_y = y1;
+
+    write_events(pen_fd, pen_move(pen_x, pen_y, x1, y2, move_pts));
+    pen_x = x1;
+    pen_y = y2;
+
+    write_events(pen_fd, pen_move(pen_x, pen_y, x2, y2, move_pts));
+    pen_x = x2;
+    pen_y = y2;
+
+    write_events(pen_fd, pen_move(pen_x, pen_y, x2, y1, move_pts));
+    pen_x = x2;
+    pen_y = y1;
+
+    write_events(pen_fd, pen_move(pen_x, pen_y, x1, y1, move_pts));
+    pen_x = x1;
+    pen_y = y1;
+
+    write_events(pen_fd, pen_up());
+}
+
+void pen_draw_rounded_rectangle(int x1, int y1, int x2, int y2, int r) {
+    // Ensure correct ordering
+    if (x2 < x1) {
+        int temp = x1;
+        x1 = x2;
+        x2 = temp;
+    }
+    if (y2 < y1) {
+        int temp = y1;
+        y1 = y2;
+        y2 = temp;
+    }
+
+    int segmentx = abs(x2 - x1);
+    int segmenty = abs(y2 - y1);
+
+    // Limit radius to half the smallest dimension
+    if (r > (0.5 * segmentx)) r = 0.5 * segmentx;
+    if (r > (0.5 * segmenty)) r = 0.5 * segmenty;
+
+    // Draw rounded rectangle using lines and arcs
+    write_events(pen_fd, pen_down(x1 + r, y1));
+    pen_x = x1 + r;
+    pen_y = y1;
+
+    // Top edge
+    write_events(pen_fd, pen_move(pen_x, pen_y, x2 - r, y1, move_pts));
+    pen_x = x2 - r;
+    pen_y = y1;
+
+    // Top-right corner arc
+    trace_arc(x2 - r, y1 + r, r, r, 270, 360, 2);
+
+    // Right edge
+    write_events(pen_fd, pen_move(pen_x, pen_y, x2, y2 - r, move_pts));
+    pen_x = x2;
+    pen_y = y2 - r;
+
+    // Bottom-right corner arc
+    trace_arc(x2 - r, y2 - r, r, r, 0, 90, 2);
+
+    // Bottom edge
+    write_events(pen_fd, pen_move(pen_x, pen_y, x1 + r, y2, move_pts));
+    pen_x = x1 + r;
+    pen_y = y2;
+
+    // Bottom-left corner arc
+    trace_arc(x1 + r, y2 - r, r, r, 90, 180, 2);
+
+    // Left edge
+    write_events(pen_fd, pen_move(pen_x, pen_y, x1, y1 + r, move_pts));
+    pen_x = x1;
+    pen_y = y1 + r;
+
+    // Top-left corner arc
+    trace_arc(x1 + r, y1 + r, r, r, 180, 270, 2);
+
+    write_events(pen_fd, pen_up());
+}
+
+void trace_bezier(const std::vector<int>& coors) {
+    // Trace bezier curve points
+    double pointx, pointy;
+    double step = 0.01;
+
+    if (coors.size() == 6) {
+        // Quadratic bezier: 3 points (start, control, end)
+        for (double t = step; t <= 1.0 + step; t += step) {
+            double it = 1 - t;
+            pointx = it * it * coors[0] + 2 * t * it * coors[2] + t * t * coors[4];
+            pointy = it * it * coors[1] + 2 * t * it * coors[3] + t * t * coors[5];
+
+            write_events(pen_fd, pen_move(pen_x, pen_y, (int)pointx, (int)pointy, move_pts), 2);
+            pen_x = (int)pointx;
+            pen_y = (int)pointy;
+        }
+    } else if (coors.size() == 8) {
+        // Cubic bezier: 4 points (start, control1, control2, end)
+        for (double t = step; t <= 1.0 + step; t += step) {
+            double it = 1 - t;
+            double it2 = it * it;
+            double it3 = it2 * it;
+            double t2 = t * t;
+            double t3 = t2 * t;
+
+            pointx = it3 * coors[0] + 3 * it2 * t * coors[2] + 3 * it * t2 * coors[4] + t3 * coors[6];
+            pointy = it3 * coors[1] + 3 * it2 * t * coors[3] + 3 * it * t2 * coors[5] + t3 * coors[7];
+
+            write_events(pen_fd, pen_move(pen_x, pen_y, (int)pointx, (int)pointy, move_pts), 2);
+            pen_x = (int)pointx;
+            pen_y = (int)pointy;
+        }
+    }
+}
+
+void pen_draw_bezier(const std::vector<int>& coors) {
+    // Draw bezier curve
+    if (coors.size() < 6) return;
+
+    write_events(pen_fd, pen_down(coors[0], coors[1]));
+    pen_x = coors[0];
+    pen_y = coors[1];
+
+    trace_bezier(coors);
+
+    write_events(pen_fd, pen_up());
+}
+
 // Finger/touch events
 std::vector<input_event> finger_down(int x, int y) {
     std::vector<input_event> ev;
@@ -247,18 +458,7 @@ void act_on_line(const std::string& line) {
     std::string tool, action;
     ss >> tool >> action;
 
-    int x = -1, y = -1, ox = -1, oy = -1;
-
-    // Parse coordinates based on action
-    if (action == "move" || action == "down") {
-        ss >> x >> y;
-    } else if (action == "up") {
-        // No coordinates needed
-    } else if (action == "on" || action == "off") {
-        // Mode toggles
-    } else {
-        return;  // Unknown action
-    }
+    int x = -1, y = -1, x2 = -1, y2 = -1, r = -1, r2 = -1, a1 = -1, a2 = -1;
 
     int sleep_val = 10;
     if (tool == "fastpen") sleep_val = 2;
@@ -268,13 +468,41 @@ void act_on_line(const std::string& line) {
         if (action == "up") {
             write_events(pen_fd, pen_up());
         } else if (action == "down") {
+            ss >> x >> y;
             write_events(pen_fd, pen_down(x, y));
             pen_x = x;
             pen_y = y;
         } else if (action == "move") {
+            ss >> x >> y;
             write_events(pen_fd, pen_move(pen_x, pen_y, x, y, move_pts), sleep_val);
             pen_x = x;
             pen_y = y;
+        }
+        // Geometry commands
+        else if (action == "line") {
+            ss >> x >> y >> x2 >> y2;
+            pen_draw_line(x, y, x2, y2);
+        } else if (action == "circle") {
+            ss >> x >> y >> r >> r2;
+            if (r2 == -1) r2 = r;  // Default to circular
+            pen_draw_circle(x, y, r, r2);
+        } else if (action == "rectangle") {
+            ss >> x >> y >> x2 >> y2;
+            pen_draw_rectangle(x, y, x2, y2);
+        } else if (action == "arc") {
+            ss >> x >> y >> r >> r2 >> a1 >> a2;
+            if (r2 == -1) r2 = r;
+            pen_draw_arc(x, y, r, r2, a1, a2);
+        } else if (action == "rounded_rectangle" || action == "roundrect") {
+            ss >> x >> y >> x2 >> y2 >> r;
+            pen_draw_rounded_rectangle(x, y, x2, y2, r);
+        } else if (action == "bezier") {
+            std::vector<int> coors;
+            int val;
+            while (ss >> val) {
+                coors.push_back(val);
+            }
+            pen_draw_bezier(coors);
         }
     }
     // Process eraser commands
@@ -282,10 +510,12 @@ void act_on_line(const std::string& line) {
         if (action == "up") {
             write_events(pen_fd, eraser_up());
         } else if (action == "down") {
+            ss >> x >> y;
             write_events(pen_fd, eraser_down(x, y, 1700));
             pen_x = x;
             pen_y = y;
         } else if (action == "move") {
+            ss >> x >> y;
             write_events(pen_fd, eraser_move(pen_x, pen_y, x, y, 1700));
             pen_x = x;
             pen_y = y;
@@ -301,10 +531,12 @@ void act_on_line(const std::string& line) {
         if (action == "up") {
             write_events(touch_fd, finger_up());
         } else if (action == "down") {
+            ss >> x >> y;
             write_events(touch_fd, finger_down(x, y));
             finger_x = x;
             finger_y = y;
         } else if (action == "move") {
+            ss >> x >> y;
             write_events(touch_fd, finger_move(finger_x, finger_y, x, y));
             finger_x = x;
             finger_y = y;
