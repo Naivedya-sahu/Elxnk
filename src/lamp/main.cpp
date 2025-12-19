@@ -39,6 +39,13 @@ int touch_fd = -1, pen_fd = -1;
 
 // Forward declarations
 void act_on_line(const std::string& line);
+void write_events(int fd, const std::vector<input_event>& events, int sleep_time = 1000);
+std::vector<input_event> pen_down(int x, int y, int points = 10);
+std::vector<input_event> pen_move(int ox, int oy, int x, int y, int points = 10);
+std::vector<input_event> pen_up();
+std::vector<input_event> eraser_down(int x, int y, int pressure = 1700);
+std::vector<input_event> eraser_move(int ox, int oy, int x, int y, int pressure = 1700);
+std::vector<input_event> finger_move(int ox, int oy, int x, int y, int points = 10);
 
 // Coordinate transformations
 int get_pen_x(int x) {
@@ -58,7 +65,7 @@ int get_touch_y(int y) {
 }
 
 // Input event helpers
-std::vector<input_event> pen_down(int x, int y, int points = 10) {
+std::vector<input_event> pen_down(int x, int y, int points) {
     std::vector<input_event> ev;
 
     ev.push_back({.type = EV_SYN, .code = SYN_REPORT, .value = 1});
@@ -79,7 +86,7 @@ std::vector<input_event> pen_down(int x, int y, int points = 10) {
     return ev;
 }
 
-std::vector<input_event> pen_move(int ox, int oy, int x, int y, int points = 10) {
+std::vector<input_event> pen_move(int ox, int oy, int x, int y, int points) {
     auto ev = pen_down(ox, oy);
     double dx = float(x - ox) / float(points);
     double dy = float(y - oy) / float(points);
@@ -114,7 +121,7 @@ std::vector<input_event> pen_clear() {
 }
 
 // Eraser functions (added for erase mode)
-std::vector<input_event> eraser_down(int x, int y, int pressure = 1700) {
+std::vector<input_event> eraser_down(int x, int y, int pressure) {
     std::vector<input_event> ev;
     ev.push_back({.type = EV_SYN, .code = SYN_REPORT, .value = 1});
     ev.push_back({.type = EV_KEY, .code = BTN_TOOL_RUBBER, .value = 1});
@@ -129,7 +136,7 @@ std::vector<input_event> eraser_down(int x, int y, int pressure = 1700) {
     return ev;
 }
 
-std::vector<input_event> eraser_move(int ox, int oy, int x, int y, int pressure = 1700) {
+std::vector<input_event> eraser_move(int ox, int oy, int x, int y, int pressure) {
     std::vector<input_event> ev;
 
     int points = std::max(abs(x - ox), abs(y - oy)) / 3;
@@ -383,7 +390,7 @@ std::vector<input_event> finger_down(int x, int y) {
     return ev;
 }
 
-std::vector<input_event> finger_move(int ox, int oy, int x, int y, int points = 10) {
+std::vector<input_event> finger_move(int ox, int oy, int x, int y, int points) {
     auto ev = finger_down(ox, oy);
     double dx = float(x - ox) / float(points);
     double dy = float(y - oy) / float(points);
@@ -405,7 +412,7 @@ std::vector<input_event> finger_up() {
 }
 
 // Write events to device
-void write_events(int fd, const std::vector<input_event>& events, int sleep_time = 1000) {
+void write_events(int fd, const std::vector<input_event>& events, int sleep_time) {
     if (fd < 0) return;
 
     std::vector<input_event> send;
