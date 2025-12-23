@@ -1,0 +1,94 @@
+#!/bin/bash
+# draw_remote - Send lamp commands to reMarkable 2 over WiFi
+#
+# Usage:
+#   draw_remote <component|text> <name/text> <x> <y> [scale] [--host IP]
+#   echo "<lamp commands>" | draw_remote --pipe [--host IP]
+#
+# Examples:
+#   draw_remote component R 500 400 1.0
+#   draw_remote text "Hello" 300 200 1.5
+#   draw_remote component R 500 400 --host 192.168.1.100
+#   render_json.py component R 500 400 | draw_remote --pipe
+#
+# Environment:
+#   RM2_HOST - reMarkable 2 IP address (default: 10.11.99.1)
+
+set -e
+
+# Configuration
+DEFAULT_HOST="${RM2_HOST:-10.11.99.1}"
+LAMP_PATH="/opt/bin/lamp"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Parse arguments
+HOST="$DEFAULT_HOST"
+PIPE_MODE=false
+
+# Check for --host option
+for ((i=1; i<=$#; i++)); do
+    if [ "${!i}" = "--host" ]; then
+        j=$((i+1))
+        HOST="${!j}"
+    fi
+    if [ "${!i}" = "--pipe" ]; then
+        PIPE_MODE=true
+    fi
+done
+
+# Function to send commands to rm2
+send_to_lamp() {
+    local commands="$1"
+    echo "$commands" | ssh root@"$HOST" "$LAMP_PATH"
+}
+
+# Check if SSH connection works
+if ! ssh -o ConnectTimeout=2 -o BatchMode=yes root@"$HOST" true 2>/dev/null; then
+    echo "Error: Cannot connect to reMarkable 2 at $HOST" >&2
+    echo "Make sure SSH is configured and the device is reachable" >&2
+    echo "Set RM2_HOST environment variable or use --host option" >&2
+    exit 1
+fi
+
+# Pipe mode - read commands from stdin
+if [ "$PIPE_MODE" = true ]; then
+    commands=$(cat)
+    send_to_lamp "$commands"
+    exit 0
+fi
+
+# Generate commands using render_json.py
+if [ $# -lt 4 ]; then
+    echo "Usage: draw_remote <component|text> <name/text> <x> <y> [scale] [--host IP]" >&2
+    exit 1
+fi
+
+# Extract positional arguments (skip --host and its value)
+args=()
+skip_next=false
+for arg in "$@"; do
+    if [ "$skip_next" = true ]; then
+        skip_next=false
+        continue
+    fi
+    if [ "$arg" = "--host" ]; then
+        skip_next=true
+        continue
+    fi
+    if [ "$arg" != "--pipe" ]; then
+        args+=("$arg")
+    fi
+done
+
+# Generate lamp commands
+commands=$("$SCRIPT_DIR/render_json.py" "${args[@]}")
+
+if [ -z "$commands" ]; then
+    echo "Error: No commands generated" >&2
+    exit 1
+fi
+
+# Send to reMarkable 2
+send_to_lamp "$commands"
+
+echo "✓ Drawn ${args[0]} '${args[1]}' at (${args[2]}, ${args[3]}) on $HOST" >&2

@@ -1,0 +1,191 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "coordinate_system": "relative",
+    "description": "Circuit component library with relative coordinates (0.0-1.0)",
+    "note": "Coordinates are relative to component bounding box. Scale to desired size on render."
+  },
+  "components": {
+    "R": {
+      "name": "Resistor",
+      "type": "passive",
+      "bbox": {
+        "width": 22,
+        "height": 78,
+        "unit": "px"
+      },
+      "terminals": {
+        "top": {"x": 0.5, "y": 0.0},
+        "bottom": {"x": 0.5, "y": 1.0}
+      },
+      "paths": [
+        {
+          "type": "path",
+          "commands": [
+            {"cmd": "M", "x": 0.5, "y": 0.17},
+            {"cmd": "L", "x": 0.95, "y": 0.26},
+            {"cmd": "L", "x": 0.5, "y": 0.31},
+            {"cmd": "L", "x": 0.05, "y": 0.35},
+            {"cmd": "L", "x": 0.5, "y": 0.40},
+            {"cmd": "L", "x": 0.95, "y": 0.45},
+            {"cmd": "L", "x": 0.5, "y": 0.50},
+            {"cmd": "L", "x": 0.05, "y": 0.56},
+            {"cmd": "L", "x": 0.5, "y": 0.60},
+            {"cmd": "L", "x": 0.95, "y": 0.64},
+            {"cmd": "L", "x": 0.5, "y": 0.69},
+            {"cmd": "L", "x": 0.05, "y": 0.74},
+            {"cmd": "L", "x": 0.5, "y": 0.79},
+            {"cmd": "L", "x": 0.5, "y": 0.82}
+          ]
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.5, "y": 0.0},
+          "to": {"x": 0.5, "y": 0.17}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.5, "y": 0.82},
+          "to": {"x": 0.5, "y": 1.0}
+        }
+      ]
+    },
+    "D": {
+      "name": "Diode",
+      "type": "semiconductor",
+      "bbox": {
+        "width": 77,
+        "height": 28,
+        "unit": "px"
+      },
+      "terminals": {
+        "left": {"x": 0.0, "y": 0.5},
+        "right": {"x": 1.0, "y": 0.5}
+      },
+      "paths": [
+        {
+          "type": "path",
+          "commands": [
+            {"cmd": "M", "x": 0.34, "y": 0.04},
+            {"cmd": "L", "x": 0.34, "y": 0.96}
+          ]
+        },
+        {
+          "type": "path",
+          "commands": [
+            {"cmd": "M", "x": 0.68, "y": 0.04},
+            {"cmd": "L", "x": 0.68, "y": 0.96},
+            {"cmd": "L", "x": 0.34, "y": 0.5},
+            {"cmd": "L", "x": 0.68, "y": 0.04}
+          ]
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.0, "y": 0.5},
+          "to": {"x": 0.34, "y": 0.5}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.68, "y": 0.5},
+          "to": {"x": 1.0, "y": 0.5}
+        }
+      ]
+    },
+    "GND": {
+      "name": "Ground",
+      "type": "symbol",
+      "bbox": {
+        "width": 26,
+        "height": 27,
+        "unit": "px"
+      },
+      "terminals": {
+        "top": {"x": 0.5, "y": 0.0}
+      },
+      "paths": [
+        {
+          "type": "line",
+          "from": {"x": 0.5, "y": 0.0},
+          "to": {"x": 0.5, "y": 0.48}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.04, "y": 0.48},
+          "to": {"x": 1.0, "y": 0.48}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.27, "y": 0.74},
+          "to": {"x": 0.77, "y": 0.74}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.46, "y": 0.96},
+          "to": {"x": 0.58, "y": 0.96}
+        }
+      ]
+    },
+    "C": {
+      "name": "Capacitor",
+      "type": "passive",
+      "bbox": {
+        "width": 22,
+        "height": 78,
+        "unit": "px"
+      },
+      "terminals": {
+        "top": {"x": 0.5, "y": 0.0},
+        "bottom": {"x": 0.5, "y": 1.0}
+      },
+      "paths": [
+        {
+          "type": "line",
+          "from": {"x": 0.5, "y": 0.0},
+          "to": {"x": 0.5, "y": 0.45}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.0, "y": 0.45},
+          "to": {"x": 1.0, "y": 0.45}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.0, "y": 0.55},
+          "to": {"x": 1.0, "y": 0.55}
+        },
+        {
+          "type": "line",
+          "from": {"x": 0.5, "y": 0.55},
+          "to": {"x": 0.5, "y": 1.0}
+        }
+      ]
+    },
+    "NMOS": {
+      "name": "N-Channel MOSFET",
+      "type": "transistor",
+      "bbox": {
+        "width": 85,
+        "height": 78,
+        "unit": "px"
+      },
+      "terminals": {
+        "gate": {"x": 0.0, "y": 0.67},
+        "drain": {"x": 0.91, "y": 0.0},
+        "source": {"x": 0.91, "y": 1.0}
+      },
+      "paths": [
+        {
+          "type": "line",
+          "from": {"x": 0.64, "y": 0.42},
+          "to": {"x": 0.64, "y": 0.91}
+        },
+        {
+          "type": "circle",
+          "cx": 0.8,
+          "cy": 0.67,
+          "r": 0.33
+        }
+      ]
+    }
+  }
+}
