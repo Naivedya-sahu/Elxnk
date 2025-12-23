@@ -14,7 +14,7 @@
 # Environment:
 #   RM2_HOST - reMarkable 2 IP address (default: 10.11.99.1)
 
-set -e
+set -euo pipefail
 
 # Configuration
 DEFAULT_HOST="${RM2_HOST:-10.11.99.1}"
@@ -42,11 +42,22 @@ send_to_lamp() {
     echo "$commands" | ssh root@"$HOST" "$LAMP_PATH"
 }
 
+# Check SSH client
+if ! command -v ssh >/dev/null 2>&1; then
+    echo "Error: SSH client not found" >&2
+    echo "Install openssh-client package" >&2
+    exit 1
+fi
+
 # Check if SSH connection works
 if ! ssh -o ConnectTimeout=2 -o BatchMode=yes root@"$HOST" true 2>/dev/null; then
     echo "Error: Cannot connect to reMarkable 2 at $HOST" >&2
-    echo "Make sure SSH is configured and the device is reachable" >&2
-    echo "Set RM2_HOST environment variable or use --host option" >&2
+    echo "" >&2
+    echo "Troubleshooting:" >&2
+    echo "  1. Check IP address: ping $HOST" >&2
+    echo "  2. Test SSH: ssh root@$HOST" >&2
+    echo "  3. Set correct IP: export RM2_HOST=your.ip.address" >&2
+    echo "  4. Or use --host option: $0 ... --host your.ip.address" >&2
     exit 1
 fi
 

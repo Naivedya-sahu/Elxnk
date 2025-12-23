@@ -199,8 +199,13 @@ def main():
         scale = float(sys.argv[5]) if len(sys.argv) > 5 else 1.0
 
         commands = render_component(comp_name, x, y, scale, components)
-        for cmd in commands:
-            print(cmd)
+        try:
+            for cmd in commands:
+                print(cmd)
+        except BrokenPipeError:
+            # Ignore broken pipe (e.g., when piping to head)
+            sys.stderr.close()
+            pass
 
     elif command == 'text':
         if len(sys.argv) < 5:
@@ -213,8 +218,13 @@ def main():
         scale = float(sys.argv[5]) if len(sys.argv) > 5 else 1.0
 
         commands = render_text(text, x, y, scale, fonts)
-        for cmd in commands:
-            print(cmd)
+        try:
+            for cmd in commands:
+                print(cmd)
+        except BrokenPipeError:
+            # Ignore broken pipe (e.g., when piping to head)
+            sys.stderr.close()
+            pass
 
     else:
         print(f"Unknown command: {command}", file=sys.stderr)
